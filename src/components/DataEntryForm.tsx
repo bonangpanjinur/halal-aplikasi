@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Camera, Upload, MapPin, ArrowLeft, X, Image as ImageIcon } from "lucide-react";
+import ImageLightbox from "@/components/ImageLightbox";
 import type { Tables } from "@/integrations/supabase/types";
 
 type DataEntry = Tables<"data_entries">;
@@ -23,32 +24,37 @@ interface Props {
 function ImagePreview({ file, existingUrl, onRemoveFile }: { file: File | null; existingUrl?: string | null; onRemoveFile: () => void }) {
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   const src = previewUrl || existingUrl;
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   if (!src) return null;
 
   return (
-    <div className="relative mt-2 inline-block">
-      <img
-        src={src}
-        alt="Preview"
-        className="h-24 w-24 rounded-lg border border-border object-cover"
-        onLoad={() => { if (previewUrl) URL.revokeObjectURL(previewUrl); }}
-      />
-      {file && (
-        <Button
-          type="button"
-          variant="destructive"
-          size="icon"
-          className="absolute -right-2 -top-2 h-5 w-5 rounded-full"
-          onClick={onRemoveFile}
-        >
-          <X className="h-3 w-3" />
-        </Button>
-      )}
-      {!file && existingUrl && (
-        <p className="mt-1 text-xs text-muted-foreground text-center">Tersimpan ✓</p>
-      )}
-    </div>
+    <>
+      <div className="relative mt-2 inline-block">
+        <img
+          src={src}
+          alt="Preview"
+          className="h-24 w-24 rounded-lg border border-border object-cover cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => setLightboxOpen(true)}
+          onLoad={() => { if (previewUrl) URL.revokeObjectURL(previewUrl); }}
+        />
+        {file && (
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon"
+            className="absolute -right-2 -top-2 h-5 w-5 rounded-full"
+            onClick={onRemoveFile}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        )}
+        {!file && existingUrl && (
+          <p className="mt-1 text-xs text-muted-foreground text-center">Tersimpan ✓</p>
+        )}
+      </div>
+      <ImageLightbox src={src} open={lightboxOpen} onClose={() => setLightboxOpen(false)} />
+    </>
   );
 }
 
