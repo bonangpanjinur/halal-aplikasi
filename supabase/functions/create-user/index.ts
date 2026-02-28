@@ -28,12 +28,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
-    const { data: claims, error: claimsError } = await supabaseUser.auth.getClaims(authHeader.replace("Bearer ", ""));
-    if (claimsError || !claims?.claims?.sub) {
+    const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser();
+    if (userError || !caller) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const callerId = claims.claims.sub;
+    const callerId = caller.id;
     const { data: callerRole } = await supabaseAdmin
       .from("user_roles")
       .select("role")
