@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Shield, ArrowRight, Search } from "lucide-react";
+import { Shield, ArrowRight, Search, TrendingUp } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -65,12 +65,18 @@ export default function Login() {
               {loading ? "Memproses..." : <>Masuk <ArrowRight className="h-4 w-4" /></>}
             </Button>
           </form>
-          <div className="mt-4 pt-4 border-t border-border text-center">
-            <p className="text-xs text-muted-foreground mb-2">Punya kode tracking sertifikat?</p>
+          <div className="mt-4 pt-4 border-t border-border text-center space-y-2">
+            <p className="text-xs text-muted-foreground">Punya kode tracking sertifikat?</p>
             <Link to="/tracking">
               <Button variant="outline" size="sm" className="w-full gap-2">
                 <Search className="h-3.5 w-3.5" />
                 Cek Status Sertifikat
+              </Button>
+            </Link>
+            <Link to="/statistik">
+              <Button variant="ghost" size="sm" className="w-full gap-2 text-muted-foreground">
+                <TrendingUp className="h-3.5 w-3.5" />
+                Lihat Statistik Publik
               </Button>
             </Link>
           </div>

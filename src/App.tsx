@@ -14,6 +14,7 @@ import GroupDetail from "@/pages/GroupDetail";
 import ShareLinks from "@/pages/ShareLinks";
 import PublicForm from "@/pages/PublicForm";
 import TrackingPage from "@/pages/TrackingPage";
+import PublicStats from "@/pages/PublicStats";
 import Profile from "@/pages/Profile";
 import AppSettings from "@/pages/AppSettings";
 import NotFound from "@/pages/NotFound";
@@ -44,6 +45,7 @@ const AppRoutes = () => (
     <Route path="/public-form/:token" element={<PublicForm />} />
     <Route path="/tracking" element={<TrackingPage />} />
     <Route path="/tracking/:code" element={<TrackingPage />} />
+    <Route path="/statistik" element={<PublicStats />} />
     <Route path="/" element={<Navigate to="/dashboard" replace />} />
     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
     <Route path="/users" element={<ProtectedRoute allowedRoles={["super_admin"]}><UsersManagement /></ProtectedRoute>} />
