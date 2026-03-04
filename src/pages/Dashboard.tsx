@@ -129,9 +129,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
+      const isSuperAdmin = role === "super_admin";
+      let entriesQuery = supabase.from("data_entries").select("id", { count: "exact", head: true });
+      if (!isSuperAdmin && user) entriesQuery = entriesQuery.eq("created_by", user.id);
+
       const [groupsRes, entriesRes] = await Promise.all([
         supabase.from("groups").select("id", { count: "exact", head: true }),
-        supabase.from("data_entries").select("id", { count: "exact", head: true }),
+        entriesQuery,
       ]);
 
       let usersCount = 0;
@@ -157,7 +161,10 @@ export default function Dashboard() {
     };
 
     const fetchChartData = async () => {
-      const { data: entries } = await supabase.from("data_entries").select("status");
+      const isSuperAdmin = role === "super_admin";
+      let statusQuery = supabase.from("data_entries").select("status");
+      if (!isSuperAdmin && user) statusQuery = statusQuery.eq("created_by", user.id);
+      const { data: entries } = await statusQuery;
       if (entries) {
         const counts: Record<string, number> = {};
         entries.forEach((e) => { counts[e.status] = (counts[e.status] || 0) + 1; });
@@ -171,7 +178,9 @@ export default function Dashboard() {
         );
       }
 
-      const { data: entryGroups } = await supabase.from("data_entries").select("group_id, groups(name)");
+      let groupQuery = supabase.from("data_entries").select("group_id, groups(name)");
+      if (!isSuperAdmin && user) groupQuery = groupQuery.eq("created_by", user.id);
+      const { data: entryGroups } = await groupQuery;
       if (entryGroups) {
         const groupCounts: Record<string, { name: string; count: number }> = {};
         entryGroups.forEach((e: any) => {
@@ -184,11 +193,14 @@ export default function Dashboard() {
     };
 
     const fetchRecentEntries = async () => {
-      const { data } = await supabase
+      const isSuperAdmin = role === "super_admin";
+      let recentQuery = supabase
         .from("data_entries")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(10);
+      if (!isSuperAdmin && user) recentQuery = recentQuery.eq("created_by", user.id);
+      const { data } = await recentQuery;
       setRecentEntries(data ?? []);
     };
 

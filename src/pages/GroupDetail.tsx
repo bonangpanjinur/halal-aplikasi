@@ -108,7 +108,9 @@ export default function GroupDetail() {
 
   const fetchEntries = async () => {
     if (!groupId) return;
-    const { data } = await supabase.from("data_entries").select("*").eq("group_id", groupId).order("created_at", { ascending: false });
+    let query = supabase.from("data_entries").select("*").eq("group_id", groupId).order("created_at", { ascending: false });
+    if (role !== "super_admin" && user) query = query.eq("created_by", user.id);
+    const { data } = await query;
     setEntries(data ?? []);
     // Fetch photo counts
     if (data && data.length > 0) {
@@ -371,6 +373,8 @@ export default function GroupDetail() {
         (payload) => {
           if (payload.eventType === "INSERT") {
             const newEntry = payload.new as DataEntry;
+            // Non-super_admin only sees own entries
+            if (role !== "super_admin" && user && (newEntry as any).created_by !== user.id) return;
             setEntries((prev) => [newEntry, ...prev]);
             toast({ title: "Data baru masuk", description: newEntry.nama || "Entri baru ditambahkan" });
           } else if (payload.eventType === "UPDATE") {
