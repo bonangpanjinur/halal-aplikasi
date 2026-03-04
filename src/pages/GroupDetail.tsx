@@ -85,7 +85,7 @@ export default function GroupDetail() {
   const ROLE_ALLOWED_STATUSES: Record<string, string[]> = {
     super_admin: Object.keys(STATUS_CONFIG),
     admin: Object.keys(STATUS_CONFIG),
-    lapangan: ["ktp_terdaftar_nib"],
+    lapangan: [],
     nib: ["ktp_terdaftar_nib"],
     admin_input: ["nib_selesai", "ktp_terdaftar_sertifikat"],
   };

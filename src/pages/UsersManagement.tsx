@@ -128,6 +128,7 @@ export default function UsersManagement() {
                     <SelectItem value="admin_input">Admin Input</SelectItem>
                     <SelectItem value="lapangan">Lapangan</SelectItem>
                     <SelectItem value="nib">NIB</SelectItem>
+                    <SelectItem value="umkm">UMKM</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

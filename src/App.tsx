@@ -18,6 +18,7 @@ import PublicStats from "@/pages/PublicStats";
 import Profile from "@/pages/Profile";
 import AppSettings from "@/pages/AppSettings";
 import Komisi from "@/pages/Komisi";
+import UmkmDashboard from "@/pages/UmkmDashboard";
 import NotFound from "@/pages/NotFound";
 import { ReactNode } from "react";
 
@@ -28,15 +29,22 @@ function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allow
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Memuat...</div>;
   if (!user) return <Navigate to="/login" replace />;
+  if (role === "umkm") {
+    if (allowedRoles && !allowedRoles.includes("umkm")) return <Navigate to="/umkm" replace />;
+    return <AppLayout>{children}</AppLayout>;
+  }
   if (allowedRoles && role && !allowedRoles.includes(role)) return <Navigate to="/dashboard" replace />;
 
   return <AppLayout>{children}</AppLayout>;
 }
 
 function AuthRoute({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, role, loading } = useAuth();
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Memuat...</div>;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) {
+    if (role === "umkm") return <Navigate to="/umkm" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -57,6 +65,7 @@ const AppRoutes = () => (
     <Route path="/komisi" element={<ProtectedRoute><Komisi /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute allowedRoles={["super_admin"]}><AppSettings /></ProtectedRoute>} />
+    <Route path="/umkm" element={<ProtectedRoute allowedRoles={["umkm"]}><UmkmDashboard /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

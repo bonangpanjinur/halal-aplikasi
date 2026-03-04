@@ -164,6 +164,7 @@ export type Database = {
           source_link_id: string | null
           status: Database["public"]["Enums"]["entry_status"]
           tracking_code: string | null
+          umkm_user_id: string | null
           updated_at: string
         }
         Insert: {
@@ -183,6 +184,7 @@ export type Database = {
           source_link_id?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
           tracking_code?: string | null
+          umkm_user_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -202,6 +204,7 @@ export type Database = {
           source_link_id?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
           tracking_code?: string | null
+          umkm_user_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -497,7 +500,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "lapangan" | "nib" | "admin_input"
+      app_role:
+        | "super_admin"
+        | "admin"
+        | "lapangan"
+        | "nib"
+        | "admin_input"
+        | "umkm"
       entry_status:
         | "belum_lengkap"
         | "siap_input"
@@ -635,7 +644,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "lapangan", "nib", "admin_input"],
+      app_role: [
+        "super_admin",
+        "admin",
+        "lapangan",
+        "nib",
+        "admin_input",
+        "umkm",
+      ],
       entry_status: [
         "belum_lengkap",
         "siap_input",

@@ -132,7 +132,7 @@ serve(async (req) => {
       ? `${(entries[0].nama || "data").replace(/[/\\?%*:|"<>]/g, "_")}.zip`
       : `data-halal-${entries.length}-entries.zip`;
 
-    return new Response(zipBuffer, {
+    return new Response(zipBuffer as unknown as BodyInit, {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/zip",
@@ -141,6 +141,6 @@ serve(async (req) => {
     });
   } catch (err) {
     console.error("Download error:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

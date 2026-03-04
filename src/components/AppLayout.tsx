@@ -16,6 +16,7 @@ import {
   Moon,
   Settings,
   Wallet,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,9 @@ const NAV_ITEMS = {
   admin_input: [
     { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { label: "Group Halal", icon: FolderOpen, path: "/groups" },
+  ],
+  umkm: [
+    { label: "Status Saya", icon: ClipboardList, path: "/umkm" },
   ],
 };
 
