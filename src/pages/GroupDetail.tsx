@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Users, FileText, Trash2, Download, Loader2, CheckCircle2, Clock, ShieldCheck, Search, Filter, FileSpreadsheet, RefreshCw, History, ArrowRight, FileCheck, Send, Award, AlertTriangle, ExternalLink } from "lucide-react";
+import { Plus, Users, FileText, Trash2, Download, Loader2, CheckCircle2, Clock, ShieldCheck, Search, Filter, FileSpreadsheet, RefreshCw, History, ArrowRight, FileCheck, Send, Award, AlertTriangle } from "lucide-react";
 import DataEntryForm from "@/components/DataEntryForm";
 import PhotoGallery from "@/components/PhotoGallery";
 import type { Tables, Enums } from "@/integrations/supabase/types";
@@ -78,9 +78,6 @@ export default function GroupDetail() {
   // Download state
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
-
-  // Check NIK modal state
-  const [checkNikOpen, setCheckNikOpen] = useState(false);
 
   const canDownload = role === "super_admin" || role === "admin" || role === "admin_input";
 
@@ -428,61 +425,15 @@ export default function GroupDetail() {
             <>
               <div className="mb-4 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* === TOMBOL CEK NIK DENGAN MODAL IFRAME === */}
-                  <Dialog open={checkNikOpen} onOpenChange={setCheckNikOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="bg-white hover:bg-gray-50 text-blue-600 border-blue-200">
-                        <Search className="w-4 h-4 mr-2" />
-                        Cek NIK
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-5xl w-[95vw] h-[85vh] flex flex-col p-0 overflow-hidden">
-                      <DialogHeader className="p-4 border-b bg-muted/30">
-                        <div className="flex items-center justify-between">
-                          <DialogTitle>Cek NIK Registrasi OSS</DialogTitle>
-                          <a
-                            href="https://ui-login.oss.go.id/register"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-sm font-normal text-blue-600 hover:underline flex items-center gap-1 mr-6"
-                          >
-                            Buka di Tab Baru <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
-                        <DialogDescription className="sr-only">
-                          Tampilan iframe untuk mengecek NIK pada sistem OSS
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="flex-1 w-full relative bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
-                        <div className="flex flex-col items-center justify-center text-center p-8 max-w-md">
-                          <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                            <AlertTriangle className="w-12 h-12 text-blue-600 mx-auto" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Halaman OSS Tidak Bisa Dimuat</h3>
-                          <p className="text-sm text-gray-600 mb-4">
-                            Sistem OSS memiliki kebijakan keamanan yang mencegah tampilan di dalam situs lain. Ini adalah tindakan keamanan standar dari pemerintah.
-                          </p>
-                          <p className="text-xs text-gray-500 mb-6 bg-gray-100 p-3 rounded">
-                            <strong>Solusi:</strong> Klik tombol <strong>\"Buka di Tab Baru\"</strong> di pojok kanan atas untuk mengakses halaman OSS di tab browser yang terpisah.
-                          </p>
-                          <Button 
-                            onClick={() => window.open('https://ui-login.oss.go.id/register', '_blank')}
-                            className="bg-blue-600 hover:bg-blue-700"
-                          >
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            Buka Halaman OSS
-                          </Button>
-                        </div>
-                        <iframe
-                          src="https://ui-login.oss.go.id/register"
-                          className="w-full h-full absolute inset-0 border-none bg-white"
-                          title="OSS Register Form"
-                          sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-                          style={{ display: 'none' }}
-                        />
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  {/* === TOMBOL CEK NIK - BUKA LANGSUNG DI TAB BARU === */}
+                  <Button 
+                    variant="outline" 
+                    className="bg-white hover:bg-gray-50 text-blue-600 border-blue-200"
+                    onClick={() => window.open('https://ui-login.oss.go.id/register', '_blank')}
+                  >
+                    <Search className="w-4 h-4 mr-2" />
+                    Cek NIK
+                  </Button>
                   <Button onClick={() => setShowEntryForm(true)}>
                     <Plus className="mr-2 h-4 w-4" /> Tambah Data
                   </Button>
