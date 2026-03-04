@@ -106,6 +106,9 @@ export default function Komisi() {
   const totalEarned = commissions.reduce((sum, c) => sum + c.amount, 0);
   const totalPending = commissions.filter((c) => c.status === "pending").reduce((sum, c) => sum + c.amount, 0);
   const totalPaid = commissions.filter((c) => c.status === "paid").reduce((sum, c) => sum + c.amount, 0);
+  const lastPaidAt = commissions
+    .filter((c) => c.status === "paid" && c.paid_at)
+    .sort((a, b) => new Date(b.paid_at!).getTime() - new Date(a.paid_at!).getTime())[0]?.paid_at;
   const currentPeriodEarned = commissions
     .filter((c) => c.period === currentPeriod)
     .reduce((sum, c) => sum + c.amount, 0);
@@ -133,13 +136,14 @@ export default function Komisi() {
       toast({ title: "Tidak ada data untuk diexport", variant: "destructive" });
       return;
     }
-    const header = ["Data", "Jumlah", "Periode", "Status", "Tanggal"];
+    const header = ["Data", "Jumlah", "Periode", "Status", "Tanggal", "Tanggal Cair"];
     const rows = commissions.map((c) => [
       c.entry_name || "-",
       c.amount.toString(),
       c.period || "-",
-      c.status === "paid" ? "Cair" : "Pending",
+      c.status === "paid" ? "Sudah Ditransfer" : "Pending",
       new Date(c.created_at).toLocaleDateString("id-ID"),
+      c.status === "paid" && c.paid_at ? new Date(c.paid_at).toLocaleDateString("id-ID") : "-",
     ]);
     const csv = [header, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -229,8 +233,13 @@ export default function Komisi() {
               <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Sudah Cair</p>
+              <p className="text-xs text-muted-foreground">Sudah Ditransfer</p>
               <p className="text-lg font-bold">{formatRp(totalPaid)}</p>
+              {lastPaidAt && (
+                <p className="text-[10px] text-muted-foreground">
+                  Transfer terakhir: {new Date(lastPaidAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -273,21 +282,22 @@ export default function Komisi() {
                 <TableHead>Periode</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Tanggal</TableHead>
-                {isAdmin && <TableHead className="w-20">Aksi</TableHead>}
+                <TableHead>Tanggal Cair</TableHead>
+                 {isAdmin && <TableHead className="w-20">Aksi</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8 text-muted-foreground">
-                    Memuat...
-                  </TableCell>
+                   <TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                     Memuat...
+                   </TableCell>
                 </TableRow>
               ) : commissions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8 text-muted-foreground">
-                    Belum ada komisi{selectedPeriod !== "all" ? ` untuk periode ${selectedPeriod}` : ""}
-                  </TableCell>
+                   <TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                     Belum ada komisi{selectedPeriod !== "all" ? ` untuk periode ${selectedPeriod}` : ""}
+                   </TableCell>
                 </TableRow>
               ) : (
                 commissions.map((c) => (
@@ -301,9 +311,14 @@ export default function Komisi() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {new Date(c.created_at).toLocaleDateString("id-ID")}
-                    </TableCell>
-                    {isAdmin && (
+                       {new Date(c.created_at).toLocaleDateString("id-ID")}
+                     </TableCell>
+                     <TableCell className="text-sm text-muted-foreground">
+                       {c.status === "paid" && c.paid_at
+                         ? new Date(c.paid_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+                         : "-"}
+                     </TableCell>
+                     {isAdmin && (
                       <TableCell>
                         {c.status === "pending" && (
                           <Button
