@@ -13,6 +13,7 @@ import { Loader2, Save, KeyRound, User, Mail, ShieldCheck } from "lucide-react";
 export default function Profile() {
   const { user, role } = useAuth();
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -27,11 +28,14 @@ export default function Profile() {
     // Fetch profile
     supabase
       .from("profiles")
-      .select("full_name")
+      .select("full_name, phone")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
-        if (data) setFullName(data.full_name ?? "");
+        if (data) {
+          setFullName(data.full_name ?? "");
+          setPhone(data.phone ?? "");
+        }
       });
   }, [user]);
 
@@ -40,7 +44,7 @@ export default function Profile() {
     setSavingProfile(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: fullName })
+      .update({ full_name: fullName, phone })
       .eq("id", user.id);
     setSavingProfile(false);
     if (error) {
@@ -108,9 +112,14 @@ export default function Profile() {
             <Label>Nama Lengkap</Label>
             <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nama lengkap" />
           </div>
+          <div className="space-y-2">
+            <Label>Nomor WhatsApp</Label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xxxxxxxxxx" />
+            <p className="text-xs text-muted-foreground">Nomor ini akan digunakan oleh UMKM untuk menghubungi Anda via WhatsApp</p>
+          </div>
           <Button onClick={handleUpdateProfile} disabled={savingProfile}>
             {savingProfile ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Simpan Nama
+            Simpan Profil
           </Button>
         </CardContent>
       </Card>
