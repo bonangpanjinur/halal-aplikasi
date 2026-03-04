@@ -453,19 +453,32 @@ export default function GroupDetail() {
                           Tampilan iframe untuk mengecek NIK pada sistem OSS
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="flex-1 w-full relative bg-gray-100">
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground -z-10 p-6 text-center">
-                          <Search className="w-8 h-8 mb-2 opacity-20" />
-                          <p>Memuat halaman OSS...</p>
-                          <p className="text-sm mt-2 max-w-md opacity-70">
-                            Jika halaman tetap putih/kosong, kemungkinan sistem OSS memblokir tampilan di dalam situs lain demi keamanan. Silakan gunakan tombol <strong>\"Buka di Tab Baru\"</strong> di atas.
+                      <div className="flex-1 w-full relative bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+                        <div className="flex flex-col items-center justify-center text-center p-8 max-w-md">
+                          <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                            <AlertTriangle className="w-12 h-12 text-blue-600 mx-auto" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Halaman OSS Tidak Bisa Dimuat</h3>
+                          <p className="text-sm text-gray-600 mb-4">
+                            Sistem OSS memiliki kebijakan keamanan yang mencegah tampilan di dalam situs lain. Ini adalah tindakan keamanan standar dari pemerintah.
                           </p>
+                          <p className="text-xs text-gray-500 mb-6 bg-gray-100 p-3 rounded">
+                            <strong>Solusi:</strong> Klik tombol <strong>\"Buka di Tab Baru\"</strong> di pojok kanan atas untuk mengakses halaman OSS di tab browser yang terpisah.
+                          </p>
+                          <Button 
+                            onClick={() => window.open('https://ui-login.oss.go.id/register', '_blank')}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Buka Halaman OSS
+                          </Button>
                         </div>
                         <iframe
                           src="https://ui-login.oss.go.id/register"
-                          className="w-full h-full absolute inset-0 border-none bg-white z-10"
+                          className="w-full h-full absolute inset-0 border-none bg-white"
                           title="OSS Register Form"
                           sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                          style={{ display: 'none' }}
                         />
                       </div>
                     </DialogContent>
