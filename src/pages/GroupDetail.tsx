@@ -83,11 +83,12 @@ export default function GroupDetail() {
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
 
-  const canDownload = role === "super_admin" || role === "admin" || role === "admin_input";
+  const canDownload = role === "super_admin" || role === "owner" || role === "admin" || role === "admin_input";
 
   // Role-based allowed status changes
   const ROLE_ALLOWED_STATUSES: Record<string, string[]> = {
     super_admin: Object.keys(STATUS_CONFIG),
+    owner: Object.keys(STATUS_CONFIG),
     admin: Object.keys(STATUS_CONFIG),
     lapangan: [],
     nib: ["ktp_terdaftar_nib"],
