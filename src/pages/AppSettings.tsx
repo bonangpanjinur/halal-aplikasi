@@ -23,6 +23,7 @@ const COLOR_PRESETS = [
 
 const ROLES = [
   { key: "super_admin", label: "Super Admin" },
+  { key: "owner", label: "Owner" },
   { key: "admin", label: "Admin" },
   { key: "admin_input", label: "Admin Input" },
   { key: "lapangan", label: "Lapangan" },
