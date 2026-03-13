@@ -58,6 +58,7 @@ export default function AppSettings() {
   // Commission rates
   const [rates, setRates] = useState<Record<string, number>>({
     super_admin: 0,
+    owner: 0,
     admin: 5000,
     admin_input: 0,
     lapangan: 10000,
