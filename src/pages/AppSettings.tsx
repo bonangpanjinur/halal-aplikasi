@@ -28,17 +28,21 @@ const ROLES = [
   { key: "admin_input", label: "Admin Input" },
   { key: "lapangan", label: "Lapangan" },
   { key: "nib", label: "NIB" },
+  { key: "umkm", label: "UMKM" },
 ];
 
 const FIELDS = [
   { key: "nama", label: "Nama" },
   { key: "alamat", label: "Alamat" },
   { key: "nomor_hp", label: "Nomor HP" },
+  { key: "email", label: "Email" },
+  { key: "kata_sandi", label: "Kata Sandi" },
   { key: "ktp", label: "Foto KTP" },
   { key: "nib", label: "NIB" },
   { key: "foto_produk", label: "Foto Produk" },
   { key: "foto_verifikasi", label: "Foto Verifikasi" },
   { key: "sertifikat", label: "Sertifikat Halal" },
+  { key: "status", label: "Ubah Status" },
 ];
 
 export default function AppSettings() {
