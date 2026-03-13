@@ -14,7 +14,7 @@ export function useFieldAccess(targetRole?: string) {
   const [loading, setLoading] = useState(true);
 
   const effectiveRole = targetRole || role;
-  const isSuperRole = effectiveRole === "super_admin" || effectiveRole === "admin";
+  const isSuperRole = effectiveRole === "super_admin" || effectiveRole === "owner" || effectiveRole === "admin";
 
   useEffect(() => {
     if (!effectiveRole) return;

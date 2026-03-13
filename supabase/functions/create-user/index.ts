@@ -36,8 +36,8 @@ serve(async (req) => {
       .eq("user_id", caller.id)
       .single();
 
-    if (callerRole?.role !== "super_admin") {
-      return new Response(JSON.stringify({ error: "Forbidden: not super_admin" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (callerRole?.role !== "super_admin" && callerRole?.role !== "owner") {
+      return new Response(JSON.stringify({ error: "Forbidden: not super_admin/owner" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { email, password, full_name, role } = await req.json();

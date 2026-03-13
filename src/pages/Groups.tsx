@@ -68,7 +68,7 @@ export default function Groups() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Group Halal</h1>
-        {role === "super_admin" && (
+        {(role === "super_admin" || role === "owner") && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" /> Buat Group</Button>
@@ -106,7 +106,7 @@ export default function Groups() {
                   <FolderOpen className="h-4 w-4 text-primary" />
                   {g.name}
                 </CardTitle>
-                {role === "super_admin" && (
+                {(role === "super_admin" || role === "owner") && (
                   <Button
                     variant="ghost"
                     size="icon"

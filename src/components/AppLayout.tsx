@@ -22,15 +22,18 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const SUPER_NAV = [
+  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+  { label: "Kelola User", icon: Users, path: "/users" },
+  { label: "Group Halal", icon: FolderOpen, path: "/groups" },
+  { label: "Share Link", icon: Link2, path: "/share" },
+  { label: "Komisi", icon: Wallet, path: "/komisi" },
+  { label: "Pengaturan", icon: Settings, path: "/settings" },
+];
+
 const NAV_ITEMS = {
-  super_admin: [
-    { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { label: "Kelola User", icon: Users, path: "/users" },
-    { label: "Group Halal", icon: FolderOpen, path: "/groups" },
-    { label: "Share Link", icon: Link2, path: "/share" },
-    { label: "Komisi", icon: Wallet, path: "/komisi" },
-    { label: "Pengaturan", icon: Settings, path: "/settings" },
-  ],
+  super_admin: SUPER_NAV,
+  owner: SUPER_NAV,
   admin: [
     { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { label: "Group Halal", icon: FolderOpen, path: "/groups" },

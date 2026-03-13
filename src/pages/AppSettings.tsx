@@ -23,6 +23,7 @@ const COLOR_PRESETS = [
 
 const ROLES = [
   { key: "super_admin", label: "Super Admin" },
+  { key: "owner", label: "Owner" },
   { key: "admin", label: "Admin" },
   { key: "admin_input", label: "Admin Input" },
   { key: "lapangan", label: "Lapangan" },
@@ -57,6 +58,7 @@ export default function AppSettings() {
   // Commission rates
   const [rates, setRates] = useState<Record<string, number>>({
     super_admin: 0,
+    owner: 0,
     admin: 5000,
     admin_input: 0,
     lapangan: 10000,
@@ -207,10 +209,10 @@ export default function AppSettings() {
     toast({ title: "Tarif komisi berhasil disimpan" });
   };
 
-  if (role !== "super_admin") {
+  if (role !== "super_admin" && role !== "owner") {
     return (
       <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Hanya Super Admin yang bisa mengakses halaman ini.</p>
+        <p className="text-muted-foreground">Hanya Super Admin / Owner yang bisa mengakses halaman ini.</p>
       </div>
     );
   }

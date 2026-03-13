@@ -89,6 +89,7 @@ export default function UsersManagement() {
   const roleBadgeVariant = (role: AppRole | null) => {
     switch (role) {
       case "super_admin": return "default";
+      case "owner": return "default";
       case "admin": return "secondary";
       case "admin_input": return "secondary";
       case "lapangan": return "outline";
@@ -128,6 +129,7 @@ export default function UsersManagement() {
                 <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="owner">Owner</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="admin_input">Admin Input</SelectItem>
                     <SelectItem value="lapangan">Lapangan</SelectItem>
@@ -166,7 +168,7 @@ export default function UsersManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {u.role !== "super_admin" && (
+                    {u.role !== "super_admin" && u.role !== "owner" && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon">

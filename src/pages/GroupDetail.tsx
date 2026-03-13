@@ -83,11 +83,12 @@ export default function GroupDetail() {
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
 
-  const canDownload = role === "super_admin" || role === "admin" || role === "admin_input";
+  const canDownload = role === "super_admin" || role === "owner" || role === "admin" || role === "admin_input";
 
   // Role-based allowed status changes
   const ROLE_ALLOWED_STATUSES: Record<string, string[]> = {
     super_admin: Object.keys(STATUS_CONFIG),
+    owner: Object.keys(STATUS_CONFIG),
     admin: Object.keys(STATUS_CONFIG),
     lapangan: [],
     nib: ["ktp_terdaftar_nib"],
@@ -230,7 +231,7 @@ export default function GroupDetail() {
     fetchGroup();
     fetchEntries();
     fetchMembers();
-    if (role === "super_admin" || role === "admin") {
+    if (role === "super_admin" || role === "owner" || role === "admin") {
       fetchAuditLogs();
     }
   }, [groupId, role]);
@@ -410,13 +411,13 @@ export default function GroupDetail() {
           if (payload.eventType === "INSERT") {
             const newEntry = payload.new as DataEntry;
             // Non-super_admin only sees own entries
-            if (role !== "super_admin" && role !== "admin" && user && (newEntry as any).created_by !== user.id) return;
+            if (role !== "super_admin" && role !== "owner" && role !== "admin" && user && (newEntry as any).created_by !== user.id) return;
             setEntries((prev) => [newEntry, ...prev]);
             toast({ title: "Data baru masuk", description: newEntry.nama || "Entri baru ditambahkan" });
           } else if (payload.eventType === "UPDATE") {
             const updated = payload.new as DataEntry;
             // Non-super_admin only updates own entries
-            if (role !== "super_admin" && role !== "admin" && user && (updated as any).created_by !== user.id) return;
+            if (role !== "super_admin" && role !== "owner" && role !== "admin" && user && (updated as any).created_by !== user.id) return;
             setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
             const oldStatus = (payload.old as any)?.status;
             if (oldStatus && oldStatus !== updated.status) {
