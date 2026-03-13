@@ -89,6 +89,7 @@ export default function UsersManagement() {
   const roleBadgeVariant = (role: AppRole | null) => {
     switch (role) {
       case "super_admin": return "default";
+      case "owner": return "default";
       case "admin": return "secondary";
       case "admin_input": return "secondary";
       case "lapangan": return "outline";
