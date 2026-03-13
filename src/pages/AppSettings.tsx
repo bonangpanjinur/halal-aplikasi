@@ -42,7 +42,14 @@ const FIELDS = [
   { key: "foto_produk", label: "Foto Produk" },
   { key: "foto_verifikasi", label: "Foto Verifikasi" },
   { key: "sertifikat", label: "Sertifikat Halal" },
-  { key: "status", label: "Ubah Status" },
+];
+
+const STATUS_OPTIONS = [
+  { key: "status:belum_lengkap", label: "→ Belum Lengkap" },
+  { key: "status:siap_input", label: "→ Siap Input" },
+  { key: "status:ktp_terdaftar_nib", label: "→ KTP Terdaftar NIB" },
+  { key: "status:pengajuan", label: "→ Pengajuan" },
+  { key: "status:sertifikat_selesai", label: "→ Sertifikat Selesai" },
 ];
 
 export default function AppSettings() {
