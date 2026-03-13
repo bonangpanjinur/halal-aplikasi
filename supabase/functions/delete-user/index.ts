@@ -39,7 +39,7 @@ serve(async (req) => {
       .eq("user_id", callerId)
       .single();
 
-    if (callerRole?.role !== "super_admin") {
+    if (callerRole?.role !== "super_admin" && callerRole?.role !== "owner") {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
     }
 
