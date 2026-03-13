@@ -86,11 +86,13 @@ export default function GroupDetail() {
 
   const canDownload = role === "super_admin" || role === "owner" || role === "admin" || role === "admin_input";
 
-  // Use field access to determine status change permission
+  // Use field access for granular per-status permissions
   const { canEdit: canEditField } = useFieldAccess();
   const isSuperRole = role === "super_admin" || role === "owner" || role === "admin";
-  const canChangeStatus = isSuperRole || canEditField("status");
-  const allowedStatuses = isSuperRole ? Object.keys(STATUS_CONFIG) : (canChangeStatus ? Object.keys(STATUS_CONFIG) : []);
+  const allowedStatuses = isSuperRole
+    ? Object.keys(STATUS_CONFIG)
+    : Object.keys(STATUS_CONFIG).filter((s) => canEditField(`status:${s}`));
+  const canChangeStatus = allowedStatuses.length > 0;
 
   const filteredEntries = entries.filter((e) => {
     const matchesSearch = searchQuery === "" ||
