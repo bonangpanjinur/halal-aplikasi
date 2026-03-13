@@ -60,7 +60,7 @@ const AppRoutes = () => (
     <Route path="/statistik" element={<PublicStats />} />
     <Route path="/" element={<Navigate to="/dashboard" replace />} />
     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-    <Route path="/users" element={<ProtectedRoute allowedRoles={["super_admin"]}><UsersManagement /></ProtectedRoute>} />
+    <Route path="/users" element={<ProtectedRoute allowedRoles={["super_admin", "owner"]}><UsersManagement /></ProtectedRoute>} />
     <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
     <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail /></ProtectedRoute>} />
     <Route path="/share" element={<ProtectedRoute><ShareLinks /></ProtectedRoute>} />
