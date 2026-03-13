@@ -168,7 +168,7 @@ export default function UsersManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {u.role !== "super_admin" && (
+                    {u.role !== "super_admin" && u.role !== "owner" && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon">

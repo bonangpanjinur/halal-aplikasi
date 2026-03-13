@@ -417,7 +417,7 @@ export default function GroupDetail() {
           } else if (payload.eventType === "UPDATE") {
             const updated = payload.new as DataEntry;
             // Non-super_admin only updates own entries
-            if (role !== "super_admin" && role !== "admin" && user && (updated as any).created_by !== user.id) return;
+            if (role !== "super_admin" && role !== "owner" && role !== "admin" && user && (updated as any).created_by !== user.id) return;
             setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
             const oldStatus = (payload.old as any)?.status;
             if (oldStatus && oldStatus !== updated.status) {

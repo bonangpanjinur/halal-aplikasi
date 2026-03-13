@@ -209,10 +209,10 @@ export default function AppSettings() {
     toast({ title: "Tarif komisi berhasil disimpan" });
   };
 
-  if (role !== "super_admin") {
+  if (role !== "super_admin" && role !== "owner") {
     return (
       <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Hanya Super Admin yang bisa mengakses halaman ini.</p>
+        <p className="text-muted-foreground">Hanya Super Admin / Owner yang bisa mengakses halaman ini.</p>
       </div>
     );
   }

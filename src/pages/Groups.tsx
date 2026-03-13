@@ -106,7 +106,7 @@ export default function Groups() {
                   <FolderOpen className="h-4 w-4 text-primary" />
                   {g.name}
                 </CardTitle>
-                {role === "super_admin" && (
+                {(role === "super_admin" || role === "owner") && (
                   <Button
                     variant="ghost"
                     size="icon"
