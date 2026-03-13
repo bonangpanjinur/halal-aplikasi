@@ -85,17 +85,11 @@ export default function GroupDetail() {
 
   const canDownload = role === "super_admin" || role === "owner" || role === "admin" || role === "admin_input";
 
-  // Role-based allowed status changes
-  const ROLE_ALLOWED_STATUSES: Record<string, string[]> = {
-    super_admin: Object.keys(STATUS_CONFIG),
-    owner: Object.keys(STATUS_CONFIG),
-    admin: Object.keys(STATUS_CONFIG),
-    lapangan: [],
-    nib: ["ktp_terdaftar_nib"],
-    admin_input: ["siap_input", "pengajuan"],
-  };
-  const allowedStatuses = ROLE_ALLOWED_STATUSES[role || ""] || [];
-  const canChangeStatus = allowedStatuses.length > 0;
+  // Use field access to determine status change permission
+  const { canEdit: canEditField } = useFieldAccess();
+  const isSuperRole = role === "super_admin" || role === "owner" || role === "admin";
+  const canChangeStatus = isSuperRole || canEditField("status");
+  const allowedStatuses = isSuperRole ? Object.keys(STATUS_CONFIG) : (canChangeStatus ? Object.keys(STATUS_CONFIG) : []);
 
   const filteredEntries = entries.filter((e) => {
     const matchesSearch = searchQuery === "" ||
