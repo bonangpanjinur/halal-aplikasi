@@ -70,7 +70,7 @@ export default function AppSettings() {
   // Siap Input required fields
   const [siapInputFields, setSiapInputFields] = useState<string[]>(["nama", "ktp", "nib", "foto_produk", "foto_verifikasi"]);
 
-  // Commission rates
+  // Commission rates (super_admin always 0 and not editable)
   const [rates, setRates] = useState<Record<string, number>>({
     super_admin: 0,
     owner: 0,
@@ -489,14 +489,20 @@ export default function AppSettings() {
             <CardContent className="space-y-4">
               {ROLES.map((r) => (
                 <div key={r.key} className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="text-sm font-medium">{r.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{r.label}</span>
+                    {r.key === 'super_admin' && (
+                      <span className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground">Tidak ada komisi</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Rp</span>
                     <Input
                       type="number"
                       value={rates[r.key] ?? 0}
-                      onChange={(e) => setRates((prev) => ({ ...prev, [r.key]: parseInt(e.target.value) || 0 }))}
+                      onChange={(e) => r.key !== 'super_admin' && setRates((prev) => ({ ...prev, [r.key]: parseInt(e.target.value) || 0 }))}
                       className="w-32 text-right font-mono"
+                      disabled={r.key === 'super_admin'}
                       min={0}
                       step={1000}
                     />
