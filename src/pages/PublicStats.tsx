@@ -15,6 +15,8 @@ const STATUS_CONFIG: Record<string, { label: string; icon: typeof Users; color: 
   belum_lengkap: { label: "Data Terisi", icon: Users, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-950" },
   lengkap: { label: "Data Lengkap", icon: Users, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-950" },
   ktp_terdaftar_nib: { label: "KTP Terdaftar NIB", icon: Users, color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-950" },
+  revisi: { label: "Dalam Revisi", icon: Users, color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-950" },
+  selesai_revisi: { label: "Selesai Revisi", icon: Users, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-950" },
   terverifikasi: { label: "Terverifikasi", icon: FileCheck, color: "text-cyan-600 dark:text-cyan-400", bg: "bg-cyan-100 dark:bg-cyan-950" },
   nib_selesai: { label: "NIB Selesai", icon: FileCheck, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-100 dark:bg-indigo-950" },
   ktp_terdaftar_sertifikat: { label: "KTP Terdaftar Sertifikat", icon: Users, color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-950" },

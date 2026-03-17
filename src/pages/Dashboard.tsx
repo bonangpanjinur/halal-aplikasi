@@ -31,6 +31,8 @@ const STATUS_LABELS: Record<string, string> = {
   ktp_terdaftar_sertifikat: "KTP Terdaftar Sertifikat",
   pengajuan: "Pengajuan",
   sertifikat_selesai: "Sertifikat Selesai",
+  revisi: "Revisi",
+  selesai_revisi: "Selesai Revisi",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -43,6 +45,8 @@ const STATUS_COLORS: Record<string, string> = {
   ktp_terdaftar_sertifikat: "hsl(15 85% 50%)",
   pengajuan: "hsl(270 60% 55%)",
   sertifikat_selesai: "hsl(160 84% 39%)",
+  revisi: "hsl(0 84% 60%)",
+  selesai_revisi: "hsl(45 93% 47%)",
 };
 
 const STATUS_BG: Record<string, string> = {
@@ -55,6 +59,8 @@ const STATUS_BG: Record<string, string> = {
   ktp_terdaftar_sertifikat: "bg-orange-100 dark:bg-orange-950",
   pengajuan: "bg-purple-100 dark:bg-purple-950",
   sertifikat_selesai: "bg-emerald-100 dark:bg-emerald-950",
+  revisi: "bg-red-100 dark:bg-red-950",
+  selesai_revisi: "bg-yellow-100 dark:bg-yellow-950",
 };
 
 const STATUS_TEXT: Record<string, string> = {
@@ -65,6 +71,8 @@ const STATUS_TEXT: Record<string, string> = {
   nib_selesai: "text-blue-700 dark:text-blue-400",
   pengajuan: "text-purple-700 dark:text-purple-400",
   sertifikat_selesai: "text-emerald-700 dark:text-emerald-400",
+  revisi: "text-red-700 dark:text-red-400",
+  selesai_revisi: "text-yellow-700 dark:text-yellow-400",
 };
 
 const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -75,6 +83,8 @@ const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructiv
   nib_selesai: "secondary",
   pengajuan: "outline",
   sertifikat_selesai: "default",
+  revisi: "destructive",
+  selesai_revisi: "secondary",
 };
 
 const pieChartConfig: ChartConfig = {
@@ -101,6 +111,10 @@ const FIELD_LABELS: Record<string, string> = {
   nama: "Nama",
   alamat: "Alamat",
   nomor_hp: "No. HP",
+  email_halal: "Email Halal",
+  sandi_halal: "Sandi Halal",
+  email_nib: "Email NIB",
+  sandi_nib: "Sandi NIB",
   ktp: "KTP",
   nib: "NIB",
   foto_produk: "Foto Produk",
@@ -112,6 +126,10 @@ const FIELD_TO_COLUMN: Record<string, string> = {
   nama: "nama",
   alamat: "alamat",
   nomor_hp: "nomor_hp",
+  email_halal: "email_halal",
+  sandi_halal: "sandi_halal",
+  email_nib: "email_nib",
+  sandi_nib: "sandi_nib",
   ktp: "ktp_url",
   nib: "nib_url",
   foto_produk: "foto_produk_url",

@@ -41,6 +41,8 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secon
   ktp_terdaftar_nib: { label: "KTP Terdaftar NIB", variant: "destructive", icon: AlertTriangle },
   pengajuan: { label: "Pengajuan", variant: "outline", icon: Send },
   sertifikat_selesai: { label: "Sertifikat Selesai", variant: "default", icon: Award },
+  revisi: { label: "Revisi", variant: "destructive", icon: RefreshCw },
+  selesai_revisi: { label: "Selesai Revisi", variant: "secondary", icon: CheckCircle2 },
 };
 
 interface MemberWithProfile {
@@ -88,10 +90,8 @@ export default function GroupDetail() {
 
   // Use field access for granular per-status permissions
   const { canEdit: canEditField } = useFieldAccess();
-  const isSuperRole = role === "super_admin" || role === "owner" || role === "admin";
-  const allowedStatuses = isSuperRole
-    ? Object.keys(STATUS_CONFIG)
-    : Object.keys(STATUS_CONFIG).filter((s) => canEditField(`status:${s}`));
+  // Phase 3: Remove super role assumption, everyone follows granular permissions
+  const allowedStatuses = Object.keys(STATUS_CONFIG).filter((s) => canEditField(`status:${s}`));
   const canChangeStatus = allowedStatuses.length > 0;
 
   const filteredEntries = entries.filter((e) => {
@@ -343,10 +343,14 @@ export default function GroupDetail() {
     }
 
     const statusLabel = (s: string) => STATUS_CONFIG[s]?.label || s;
-    const headers = ["Nama", "Status", "Alamat", "Nomor HP", "KTP", "NIB", "Foto Produk", "Foto Verifikasi", "Tanggal Dibuat"];
+    const headers = ["Nama", "Status", "Email Halal", "Sandi Halal", "Email NIB", "Sandi NIB", "Alamat", "Nomor HP", "KTP", "NIB", "Foto Produk", "Foto Verifikasi", "Tanggal Dibuat"];
     const rows = dataToExport.map((e) => [
       e.nama || "",
       statusLabel(e.status),
+      (e as any).email_halal || "",
+      (e as any).sandi_halal || "",
+      (e as any).email_nib || "",
+      (e as any).sandi_nib || "",
       e.alamat || "",
       e.nomor_hp || "",
       e.ktp_url || "",
@@ -574,8 +578,10 @@ export default function GroupDetail() {
                           )}
                           <TableHead>Nama</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Kata Sandi</TableHead>
+                          <TableHead>Email Halal</TableHead>
+                          <TableHead>Sandi Halal</TableHead>
+                          <TableHead>Email NIB</TableHead>
+                          <TableHead>Sandi NIB</TableHead>
                           <TableHead>Alamat</TableHead>
                           <TableHead>No HP</TableHead>
                           <TableHead>KTP</TableHead>
@@ -636,8 +642,10 @@ export default function GroupDetail() {
                                 })()
                               )}
                             </TableCell>
-                            <TableCell className="max-w-[150px] truncate cursor-pointer" onClick={() => setEditingEntry(e)}>{(e as any).email || "-"}</TableCell>
-                            <TableCell className="cursor-pointer" onClick={() => setEditingEntry(e)}>{(e as any).kata_sandi || "-"}</TableCell>
+                            <TableCell className="max-w-[150px] truncate cursor-pointer" onClick={() => setEditingEntry(e)}>{(e as any).email_halal || "-"}</TableCell>
+                            <TableCell className="cursor-pointer" onClick={() => setEditingEntry(e)}>{(e as any).sandi_halal || "-"}</TableCell>
+                            <TableCell className="max-w-[150px] truncate cursor-pointer" onClick={() => setEditingEntry(e)}>{(e as any).email_nib || "-"}</TableCell>
+                            <TableCell className="cursor-pointer" onClick={() => setEditingEntry(e)}>{(e as any).sandi_nib || "-"}</TableCell>
                             <TableCell className="max-w-[150px] truncate cursor-pointer" onClick={() => setEditingEntry(e)}>{e.alamat || "-"}</TableCell>
                             <TableCell className="cursor-pointer" onClick={() => setEditingEntry(e)}>{e.nomor_hp || "-"}</TableCell>
                             <TableCell>{e.ktp_url ? <Badge variant="secondary">✓</Badge> : "-"}</TableCell>
