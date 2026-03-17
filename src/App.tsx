@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/components/AppLayout";
+import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import UsersManagement from "@/pages/UsersManagement";
@@ -50,26 +51,29 @@ function AuthRoute({ children }: { children: ReactNode }) {
 }
 
 const AppRoutes = () => (
-  <Routes>
-    <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
-    <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
-    <Route path="/public-form/:token" element={<PublicForm />} />
-    <Route path="/f/:slug" element={<PublicForm />} />
-    <Route path="/tracking" element={<TrackingPage />} />
-    <Route path="/tracking/:code" element={<TrackingPage />} />
-    <Route path="/statistik" element={<PublicStats />} />
-    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-    <Route path="/users" element={<ProtectedRoute allowedRoles={["super_admin", "owner"]}><UsersManagement /></ProtectedRoute>} />
-    <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
-    <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail /></ProtectedRoute>} />
-    <Route path="/share" element={<ProtectedRoute><ShareLinks /></ProtectedRoute>} />
-    <Route path="/komisi" element={<ProtectedRoute><Komisi /></ProtectedRoute>} />
-    <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-    <Route path="/settings" element={<ProtectedRoute allowedRoles={["super_admin", "owner"]}><AppSettings /></ProtectedRoute>} />
-    <Route path="/umkm" element={<ProtectedRoute allowedRoles={["umkm"]}><UmkmDashboard /></ProtectedRoute>} />
-    <Route path="*" element={<NotFound />} />
-  </Routes>
+  <>
+    <Routes>
+      <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
+      <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
+      <Route path="/public-form/:token" element={<PublicForm />} />
+      <Route path="/f/:slug" element={<PublicForm />} />
+      <Route path="/tracking" element={<TrackingPage />} />
+      <Route path="/tracking/:code" element={<TrackingPage />} />
+      <Route path="/statistik" element={<PublicStats />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/users" element={<ProtectedRoute allowedRoles={["super_admin", "owner"]}><UsersManagement /></ProtectedRoute>} />
+      <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
+      <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail /></ProtectedRoute>} />
+      <Route path="/share" element={<ProtectedRoute><ShareLinks /></ProtectedRoute>} />
+      <Route path="/komisi" element={<ProtectedRoute><Komisi /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute allowedRoles={["super_admin", "owner"]}><AppSettings /></ProtectedRoute>} />
+      <Route path="/umkm" element={<ProtectedRoute allowedRoles={["umkm"]}><UmkmDashboard /></ProtectedRoute>} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+    <PwaInstallPrompt />
+  </>
 );
 
 const App = () => (
