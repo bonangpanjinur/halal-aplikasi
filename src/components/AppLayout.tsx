@@ -19,6 +19,7 @@ import {
   Wallet,
   ClipboardList,
   Bell,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ const SUPER_NAV = [
   { label: "Group Halal", icon: FolderOpen, path: "/groups" },
   { label: "Share Link", icon: Link2, path: "/share" },
   { label: "Komisi", icon: Wallet, path: "/komisi" },
+  { label: "Penagihan", icon: CreditCard, path: "/billing-management" },
   { label: "Pengaturan", icon: Settings, path: "/settings" },
 ];
 
@@ -36,6 +38,7 @@ const OWNER_NAV = [
   { label: "Group Halal", icon: FolderOpen, path: "/groups" },
   { label: "Share Link", icon: Link2, path: "/share" },
   { label: "Komisi", icon: Wallet, path: "/komisi" },
+  { label: "Paket & Billing", icon: CreditCard, path: "/billing" },
 ];
 
 const NAV_ITEMS = {

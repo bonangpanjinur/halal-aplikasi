@@ -19,6 +19,8 @@ import PublicStats from "@/pages/PublicStats";
 import Profile from "@/pages/Profile";
 import AppSettings from "@/pages/AppSettings";
 import Komisi from "@/pages/Komisi";
+import OwnerBilling from "@/pages/OwnerBilling";
+import BillingManagement from "@/pages/BillingManagement";
 import UmkmDashboard from "@/pages/UmkmDashboard";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/NotFound";
@@ -67,6 +69,8 @@ const AppRoutes = () => (
       <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail /></ProtectedRoute>} />
       <Route path="/share" element={<ProtectedRoute><ShareLinks /></ProtectedRoute>} />
       <Route path="/komisi" element={<ProtectedRoute><Komisi /></ProtectedRoute>} />
+      <Route path="/billing" element={<ProtectedRoute allowedRoles={["owner"]}><OwnerBilling /></ProtectedRoute>} />
+      <Route path="/billing-management" element={<ProtectedRoute allowedRoles={["super_admin"]}><BillingManagement /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute allowedRoles={["super_admin", "owner"]}><AppSettings /></ProtectedRoute>} />
       <Route path="/umkm" element={<ProtectedRoute allowedRoles={["umkm"]}><UmkmDashboard /></ProtectedRoute>} />
