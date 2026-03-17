@@ -77,37 +77,75 @@ export default function UsersManagement() {
   const fetchUsers = async () => {
     if (!user) return;
 
-    const { data: profiles } = await supabase.from("profiles").select("*");
-    const { data: roles } = await supabase.from("user_roles").select("*");
+    try {
+      // Fetch profiles with better error handling
+      const { data: profiles, error: profilesError } = await supabase.from("profiles").select("*");
+      if (profilesError) throw profilesError;
 
-    const roleMap = new Map(roles?.map((r) => [r.user_id, r.role]));
-    const merged: UserWithRole[] = (profiles ?? []).map((p: any) => ({
-      id: p.id,
-      full_name: p.full_name,
-      email: p.email,
-      role: roleMap.get(p.id) ?? null,
-      owner_id: p.owner_id ?? null,
-    }));
+      // Fetch roles with better error handling
+      const { data: roles, error: rolesError } = await supabase.from("user_roles").select("*");
+      if (rolesError) throw rolesError;
 
-    // Filter users based on current user's role and scope
-    let visibleUsers: UserWithRole[] = [];
-    if (role === "super_admin") {
-      // Super admin sees all users
-      visibleUsers = merged;
-    } else if (role === "owner") {
-      // Owner sees only their own users and themselves
-      visibleUsers = merged.filter((item) => item.id === user.id || item.owner_id === user.id);
-    } else {
-      // Other roles shouldn't access this page
-      visibleUsers = [];
+      const roleMap = new Map(roles?.map((r) => [r.user_id, r.role]));
+      const merged: UserWithRole[] = (profiles ?? []).map((p: any) => ({
+        id: p.id,
+        full_name: p.full_name,
+        email: p.email,
+        role: roleMap.get(p.id) ?? null,
+        owner_id: p.owner_id ?? null,
+      }));
+
+      // Filter users based on current user's role and scope
+      let visibleUsers: UserWithRole[] = [];
+      if (role === "super_admin") {
+        // Super admin sees all users
+        visibleUsers = merged;
+      } else if (role === "owner") {
+        // Owner sees only their own users and themselves
+        visibleUsers = merged.filter((item) => item.id === user.id || item.owner_id === user.id);
+      } else {
+        // Other roles shouldn't access this page
+        visibleUsers = [];
+      }
+
+      setUsers(visibleUsers.sort((a, b) => (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "")));
+      setOwners(merged.filter((item) => item.role === "owner"));
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      toast({ title: "Gagal memuat data user", variant: "destructive" });
     }
-
-    setUsers(visibleUsers.sort((a, b) => (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "")));
-    setOwners(merged.filter((item) => item.role === "owner"));
   };
 
   useEffect(() => {
     fetchUsers();
+    
+    // Set up real-time subscription for user changes
+    const profilesSubscription = supabase
+      .channel("profiles-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => {
+          fetchUsers();
+        }
+      )
+      .subscribe();
+    
+    const rolesSubscription = supabase
+      .channel("roles-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "user_roles" },
+        () => {
+          fetchUsers();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      profilesSubscription.unsubscribe();
+      rolesSubscription.unsubscribe();
+    };
   }, [role, user]);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -160,8 +198,27 @@ export default function UsersManagement() {
     setNewPassword("");
     setNewRole(creatableRoles[0] || "admin");
     setSelectedOwnerId("");
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    
+    // Refresh users list with a shorter delay and real-time subscription
+    await new Promise((resolve) => setTimeout(resolve, 300));
     fetchUsers();
+    
+    // Set up real-time subscription to catch any updates
+    const profilesSubscription = supabase
+      .channel("profiles-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => {
+          fetchUsers();
+        }
+      )
+      .subscribe();
+    
+    // Clean up subscription after 2 seconds
+    setTimeout(() => {
+      profilesSubscription.unsubscribe();
+    }, 2000);
   };
 
   const handleDelete = async (userId: string) => {

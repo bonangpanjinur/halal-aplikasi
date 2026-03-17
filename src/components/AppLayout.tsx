@@ -30,6 +30,7 @@ const SUPER_NAV = [
   { label: "Share Link", icon: Link2, path: "/share" },
   { label: "Komisi", icon: Wallet, path: "/komisi" },
   { label: "Penagihan", icon: CreditCard, path: "/billing-management" },
+  { label: "Metode Pembayaran", icon: CreditCard, path: "/payment-methods" },
   { label: "Pengaturan", icon: Settings, path: "/settings" },
 ];
 
@@ -39,6 +40,7 @@ const OWNER_NAV = [
   { label: "Share Link", icon: Link2, path: "/share" },
   { label: "Komisi", icon: Wallet, path: "/komisi" },
   { label: "Paket & Billing", icon: CreditCard, path: "/billing" },
+  { label: "Metode Pembayaran", icon: CreditCard, path: "/owner-payment-methods" },
 ];
 
 const NAV_ITEMS = {

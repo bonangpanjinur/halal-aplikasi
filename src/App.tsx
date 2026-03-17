@@ -21,6 +21,8 @@ import AppSettings from "@/pages/AppSettings";
 import Komisi from "@/pages/Komisi";
 import OwnerBilling from "@/pages/OwnerBilling";
 import BillingManagement from "@/pages/BillingManagement";
+import PaymentMethodsManagement from "@/pages/PaymentMethodsManagement";
+import OwnerPaymentMethods from "@/pages/OwnerPaymentMethods";
 import UmkmDashboard from "@/pages/UmkmDashboard";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/NotFound";
@@ -71,6 +73,8 @@ const AppRoutes = () => (
       <Route path="/komisi" element={<ProtectedRoute><Komisi /></ProtectedRoute>} />
       <Route path="/billing" element={<ProtectedRoute allowedRoles={["owner"]}><OwnerBilling /></ProtectedRoute>} />
       <Route path="/billing-management" element={<ProtectedRoute allowedRoles={["super_admin"]}><BillingManagement /></ProtectedRoute>} />
+      <Route path="/payment-methods" element={<ProtectedRoute allowedRoles={["super_admin"]}><PaymentMethodsManagement /></ProtectedRoute>} />
+      <Route path="/owner-payment-methods" element={<ProtectedRoute allowedRoles={["owner"]}><OwnerPaymentMethods /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute allowedRoles={["super_admin", "owner"]}><AppSettings /></ProtectedRoute>} />
       <Route path="/umkm" element={<ProtectedRoute allowedRoles={["umkm"]}><UmkmDashboard /></ProtectedRoute>} />
