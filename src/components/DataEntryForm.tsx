@@ -171,8 +171,10 @@ export default function DataEntryForm({ groupId, entry, onCancel, onSaved, isPub
     if (canEditField("nama")) payload.nama = nama;
     if (canEditField("alamat")) payload.alamat = alamat;
     if (canEditField("nomor_hp")) payload.nomor_hp = nomorHp;
-    if (canEditField("email")) payload.email = email;
-    if (canEditField("kata_sandi")) payload.kata_sandi = kataSandi;
+    if (canEditField("email_halal")) payload.email_halal = emailHalal;
+    if (canEditField("sandi_halal")) payload.sandi_halal = sandiHalal;
+    if (canEditField("email_nib")) payload.email_nib = emailNib;
+    if (canEditField("sandi_nib")) payload.sandi_nib = sandiNib;
     if (canEditField("ktp") && ktp_url) payload.ktp_url = ktp_url;
     if (canEditField("nib") && nib_url) payload.nib_url = nib_url;
     if (canEditField("sertifikat") && sertifikat_url) payload.sertifikat_url = sertifikat_url;
@@ -355,17 +357,31 @@ export default function DataEntryForm({ groupId, entry, onCancel, onSaved, isPub
           </div>
         )}
 
-        {canEditField("email") && (
+        {canEditField("email_halal") && (
           <div className="space-y-2">
-            <Label>Email</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@contoh.com" />
+            <Label>Email Halal</Label>
+            <Input type="email" value={emailHalal} onChange={(e) => setEmailHalal(e.target.value)} placeholder="halal@contoh.com" />
           </div>
         )}
 
-        {canEditField("kata_sandi") && (
+        {canEditField("sandi_halal") && (
           <div className="space-y-2">
-            <Label>Kata Sandi</Label>
-            <Input value={kataSandi} onChange={(e) => setKataSandi(e.target.value)} placeholder="Kata sandi akun" />
+            <Label>Sandi Halal</Label>
+            <Input value={sandiHalal} onChange={(e) => setSandiHalal(e.target.value)} placeholder="Sandi akun halal" />
+          </div>
+        )}
+
+        {canEditField("email_nib") && (
+          <div className="space-y-2">
+            <Label>Email NIB</Label>
+            <Input type="email" value={emailNib} onChange={(e) => setEmailNib(e.target.value)} placeholder="nib@contoh.com" />
+          </div>
+        )}
+
+        {canEditField("sandi_nib") && (
+          <div className="space-y-2">
+            <Label>Sandi NIB</Label>
+            <Input value={sandiNib} onChange={(e) => setSandiNib(e.target.value)} placeholder="Sandi akun NIB" />
           </div>
         )}
 

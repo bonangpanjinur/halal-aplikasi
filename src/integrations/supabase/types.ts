@@ -75,6 +75,7 @@ export type Database = {
         Row: {
           amount_per_entry: number
           id: string
+          owner_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string | null
           updated_by: string | null
@@ -82,6 +83,7 @@ export type Database = {
         Insert: {
           amount_per_entry?: number
           id?: string
+          owner_id?: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at?: string | null
           updated_by?: string | null
@@ -89,11 +91,20 @@ export type Database = {
         Update: {
           amount_per_entry?: number
           id?: string
+          owner_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string | null
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "commission_rates_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       commissions: {
         Row: {
@@ -152,6 +163,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           email: string | null
+          email_halal: string | null
+          email_nib: string | null
           foto_produk_url: string | null
           foto_verifikasi_url: string | null
           group_id: string
@@ -162,6 +175,8 @@ export type Database = {
           nib_url: string | null
           nomor_hp: string | null
           pic_user_id: string | null
+          sandi_halal: string | null
+          sandi_nib: string | null
           sertifikat_url: string | null
           source_link_id: string | null
           status: Database["public"]["Enums"]["entry_status"]
@@ -174,6 +189,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
+          email_halal?: string | null
+          email_nib?: string | null
           foto_produk_url?: string | null
           foto_verifikasi_url?: string | null
           group_id: string
@@ -184,6 +201,8 @@ export type Database = {
           nib_url?: string | null
           nomor_hp?: string | null
           pic_user_id?: string | null
+          sandi_halal?: string | null
+          sandi_nib?: string | null
           sertifikat_url?: string | null
           source_link_id?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
@@ -196,6 +215,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
+          email_halal?: string | null
+          email_nib?: string | null
           foto_produk_url?: string | null
           foto_verifikasi_url?: string | null
           group_id?: string
@@ -206,6 +227,8 @@ export type Database = {
           nib_url?: string | null
           nomor_hp?: string | null
           pic_user_id?: string | null
+          sandi_halal?: string | null
+          sandi_nib?: string | null
           sertifikat_url?: string | null
           source_link_id?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
@@ -360,6 +383,7 @@ export type Database = {
           created_by: string
           id: string
           name: string
+          owner_id: string | null
           updated_at: string
         }
         Insert: {
@@ -367,6 +391,7 @@ export type Database = {
           created_by: string
           id?: string
           name: string
+          owner_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -374,9 +399,18 @@ export type Database = {
           created_by?: string
           id?: string
           name?: string
+          owner_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "groups_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -416,12 +450,144 @@ export type Database = {
           },
         ]
       }
+      owner_billing_rates: {
+        Row: {
+          fee_per_certificate: number
+          id: string
+          owner_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          fee_per_certificate?: number
+          id?: string
+          owner_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          fee_per_certificate?: number
+          id?: string
+          owner_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_billing_rates_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_invoice_items: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          entry_id: string | null
+          id: string
+          invoice_id: string
+          owner_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          entry_id?: string | null
+          id?: string
+          invoice_id: string
+          owner_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          entry_id?: string | null
+          id?: string
+          invoice_id?: string
+          owner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_invoice_items_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "data_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "owner_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_invoice_items_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_invoices: {
+        Row: {
+          created_at: string
+          id: string
+          issued_at: string | null
+          notes: string | null
+          owner_id: string
+          paid_at: string | null
+          period: string
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          issued_at?: string | null
+          notes?: string | null
+          owner_id: string
+          paid_at?: string | null
+          period: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          issued_at?: string | null
+          notes?: string | null
+          owner_id?: string
+          paid_at?: string | null
+          period?: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_invoices_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
           email: string | null
           full_name: string | null
           id: string
+          owner_id: string | null
           phone: string | null
           updated_at: string
         }
@@ -430,6 +596,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          owner_id?: string | null
           phone?: string | null
           updated_at?: string
         }
@@ -438,10 +605,19 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          owner_id?: string | null
           phone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shared_links: {
         Row: {
@@ -565,6 +741,8 @@ export type Database = {
         | "sertifikat_selesai"
         | "ktp_terdaftar_nib"
         | "ktp_terdaftar_sertifikat"
+        | "revisi"
+        | "selesai_revisi"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -711,6 +889,8 @@ export const Constants = {
         "sertifikat_selesai",
         "ktp_terdaftar_nib",
         "ktp_terdaftar_sertifikat",
+        "revisi",
+        "selesai_revisi",
       ],
     },
   },

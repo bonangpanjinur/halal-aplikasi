@@ -4,21 +4,22 @@ import { cn } from "@/lib/utils";
 const STEPS = [
   { key: "belum_lengkap", label: "Belum Lengkap" },
   { key: "siap_input", label: "Siap Input" },
-  { key: "nib_selesai", label: "NIB Selesai" },
-  { key: "terverifikasi", label: "Terverifikasi" },
+  { key: "revisi", label: "Revisi" },
+  { key: "selesai_revisi", label: "Selesai Revisi" },
   { key: "pengajuan", label: "Pengajuan" },
   { key: "sertifikat_selesai", label: "Sertifikat Selesai" },
 ];
 
-// Map any status to its step index (some statuses map to the same step)
 const STATUS_TO_STEP: Record<string, number> = {
   belum_lengkap: 0,
   siap_input: 1,
   lengkap: 1,
   ktp_terdaftar_nib: 1,
-  nib_selesai: 2,
-  ktp_terdaftar_sertifikat: 2,
-  terverifikasi: 3,
+  nib_selesai: 1,
+  terverifikasi: 1,
+  revisi: 2,
+  selesai_revisi: 3,
+  ktp_terdaftar_sertifikat: 3,
   pengajuan: 4,
   sertifikat_selesai: 5,
 };

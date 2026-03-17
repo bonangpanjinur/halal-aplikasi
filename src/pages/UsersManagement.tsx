@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,82 +21,125 @@ interface UserWithRole {
   full_name: string | null;
   email: string | null;
   role: AppRole | null;
+  owner_id?: string | null;
 }
 
+const ROLE_OPTIONS: { value: AppRole; label: string }[] = [
+  { value: "owner", label: "Owner" },
+  { value: "admin", label: "Admin" },
+  { value: "admin_input", label: "Admin Input" },
+  { value: "lapangan", label: "Lapangan" },
+  { value: "nib", label: "NIB" },
+  { value: "umkm", label: "UMKM" },
+];
+
 export default function UsersManagement() {
+  const { role, user } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [owners, setOwners] = useState<UserWithRole[]>([]);
   const [open, setOpen] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newRole, setNewRole] = useState<AppRole>("lapangan");
+  const [newRole, setNewRole] = useState<AppRole>(role === "super_admin" ? "owner" : "admin");
+  const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [creating, setCreating] = useState(false);
 
+  const roleOptions = useMemo(
+    () => ROLE_OPTIONS.filter((option) => (role === "super_admin" ? option.value !== "super_admin" : option.value !== "owner" && option.value !== "super_admin")),
+    [role]
+  );
+
+  const canSelectOwner = role === "super_admin" && newRole !== "owner";
+
   const fetchUsers = async () => {
+    if (!user) return;
+
     const { data: profiles } = await supabase.from("profiles").select("*");
     const { data: roles } = await supabase.from("user_roles").select("*");
 
     const roleMap = new Map(roles?.map((r) => [r.user_id, r.role]));
-    const merged: UserWithRole[] = (profiles ?? []).map((p) => ({
+    const merged: UserWithRole[] = (profiles ?? []).map((p: any) => ({
       id: p.id,
       full_name: p.full_name,
       email: p.email,
       role: roleMap.get(p.id) ?? null,
+      owner_id: p.owner_id ?? null,
     }));
-    setUsers(merged);
+
+    const visibleUsers = role === "owner"
+      ? merged.filter((item) => item.id === user.id || item.owner_id === user.id)
+      : merged;
+
+    setUsers(visibleUsers.sort((a, b) => (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "")));
+    setOwners(merged.filter((item) => item.role === "owner"));
   };
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [role, user]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCreating(true);
+    if (!user) return;
+    if (newPassword.length < 6) {
+      toast({ title: "Password minimal 6 karakter", variant: "destructive" });
+      return;
+    }
+    if (canSelectOwner && !selectedOwnerId) {
+      toast({ title: "Pilih owner terlebih dulu", variant: "destructive" });
+      return;
+    }
 
-    // Use edge function to create user (super admin creates accounts)
+    setCreating(true);
+    const ownerId = role === "owner" ? user.id : newRole === "owner" ? undefined : selectedOwnerId;
+
     const { data, error } = await supabase.functions.invoke("create-user", {
-      body: { email: newEmail, password: newPassword, full_name: newName, role: newRole },
+      body: { email: newEmail, password: newPassword, full_name: newName, role: newRole, owner_id: ownerId },
     });
 
     setCreating(false);
 
     if (error || data?.error) {
       toast({ title: "Gagal membuat user", description: error?.message || data?.error, variant: "destructive" });
-    } else {
-      toast({ title: "User berhasil dibuat" });
-      setOpen(false);
-      setNewEmail("");
-      setNewName("");
-      setNewPassword("");
-      // Delay to allow DB trigger to create profile
-      await new Promise((r) => setTimeout(r, 800));
-      fetchUsers();
+      return;
     }
+
+    toast({ title: "User berhasil dibuat" });
+    setOpen(false);
+    setNewEmail("");
+    setNewName("");
+    setNewPassword("");
+    setNewRole(role === "super_admin" ? "owner" : "admin");
+    setSelectedOwnerId("");
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    fetchUsers();
   };
 
   const handleDelete = async (userId: string) => {
-    const { data, error } = await supabase.functions.invoke("delete-user", {
-      body: { user_id: userId },
-    });
+    const { data, error } = await supabase.functions.invoke("delete-user", { body: { user_id: userId } });
     if (error || data?.error) {
       toast({ title: "Gagal menghapus user", description: error?.message || data?.error, variant: "destructive" });
-    } else {
-      toast({ title: "User dihapus" });
-      fetchUsers();
+      return;
     }
+    toast({ title: "User dihapus" });
+    fetchUsers();
   };
 
-  const roleBadgeVariant = (role: AppRole | null) => {
-    switch (role) {
+  const roleBadgeVariant = (value: AppRole | null) => {
+    switch (value) {
       case "super_admin": return "default";
       case "owner": return "default";
       case "admin": return "secondary";
       case "admin_input": return "secondary";
-      case "lapangan": return "outline";
-      case "nib": return "outline";
       default: return "outline";
     }
+  };
+
+  const canDeleteUser = (target: UserWithRole) => {
+    if (!user || target.id === user.id || target.role === "super_admin") return false;
+    if (role === "super_admin") return true;
+    return target.role !== "owner" && target.owner_id === user.id;
   };
 
   return (
@@ -109,16 +153,18 @@ export default function UsersManagement() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Buat User Baru</DialogTitle>
-              <DialogDescription>Isi data untuk membuat akun user baru.</DialogDescription>
+              <DialogDescription>
+                {role === "super_admin" ? "Super admin bisa membuat owner dan user tenant." : "Owner bisa membuat user untuk timnya sendiri."}
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
                 <Label>Nama Lengkap</Label>
-                <Input value={newName} onChange={(e) => setNewName(e.target.value)} required />
+                <Input value={newName} onChange={(e) => setNewName(e.target.value)} required maxLength={100} />
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
-                <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
+                <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required maxLength={255} />
               </div>
               <div className="space-y-2">
                 <Label>Password</Label>
@@ -126,21 +172,29 @@ export default function UsersManagement() {
               </div>
               <div className="space-y-2">
                 <Label>Role</Label>
-                <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
+                <Select value={newRole} onValueChange={(value) => setNewRole(value as AppRole)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="owner">Owner</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="admin_input">Admin Input</SelectItem>
-                    <SelectItem value="lapangan">Lapangan</SelectItem>
-                    <SelectItem value="nib">NIB</SelectItem>
-                    <SelectItem value="umkm">UMKM</SelectItem>
+                    {roleOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" className="w-full" disabled={creating}>
-                {creating ? "Membuat..." : "Buat User"}
-              </Button>
+              {canSelectOwner && (
+                <div className="space-y-2">
+                  <Label>Owner</Label>
+                  <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
+                    <SelectTrigger><SelectValue placeholder="Pilih owner" /></SelectTrigger>
+                    <SelectContent>
+                      {owners.map((ownerItem) => (
+                        <SelectItem key={ownerItem.id} value={ownerItem.id}>{ownerItem.full_name || ownerItem.email || ownerItem.id}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <Button type="submit" className="w-full" disabled={creating}>{creating ? "Membuat..." : "Buat User"}</Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -154,49 +208,44 @@ export default function UsersManagement() {
                 <TableHead>Nama</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                {role === "super_admin" && <TableHead>Owner</TableHead>}
                 <TableHead className="w-16"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.full_name || "-"}</TableCell>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={roleBadgeVariant(u.role)}>
-                      {u.role?.replace("_", " ") ?? "No role"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {u.role !== "super_admin" && u.role !== "owner" && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Hapus User</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Yakin ingin menghapus {u.full_name || u.email}? Tindakan ini tidak bisa dibatalkan.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Batal</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(u.id)}>Hapus</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {users.map((u) => {
+                const ownerName = owners.find((ownerItem) => ownerItem.id === u.owner_id)?.full_name || owners.find((ownerItem) => ownerItem.id === u.owner_id)?.email || "-";
+                return (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">{u.full_name || "-"}</TableCell>
+                    <TableCell>{u.email}</TableCell>
+                    <TableCell><Badge variant={roleBadgeVariant(u.role)}>{u.role?.replace("_", " ") ?? "No role"}</Badge></TableCell>
+                    {role === "super_admin" && <TableCell>{u.role === "owner" ? "Tenant owner" : ownerName}</TableCell>}
+                    <TableCell>
+                      {canDeleteUser(u) && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Hapus User</AlertDialogTitle>
+                              <AlertDialogDescription>Yakin ingin menghapus {u.full_name || u.email}? Tindakan ini tidak bisa dibatalkan.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Batal</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(u.id)}>Hapus</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {users.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                    Belum ada user
-                  </TableCell>
+                  <TableCell colSpan={role === "super_admin" ? 5 : 4} className="py-8 text-center text-muted-foreground">Belum ada user</TableCell>
                 </TableRow>
               )}
             </TableBody>
