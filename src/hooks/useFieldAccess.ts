@@ -14,11 +14,14 @@ export function useFieldAccess(targetRole?: string) {
   const [loading, setLoading] = useState(true);
 
   const effectiveRole = targetRole || role;
-  const isSuperRole = effectiveRole === "super_admin" || effectiveRole === "owner" || effectiveRole === "admin";
+  // Only super_admin has unrestricted field access across all tenants
+  // Owner has full access to their own tenant data (enforced by RLS at database level)
+  const isSuperRole = effectiveRole === "super_admin";
 
   useEffect(() => {
     if (!effectiveRole) return;
-    if (isSuperRole) {
+    // Super admin and owner don't need field access configuration
+    if (isSuperRole || effectiveRole === "owner") {
       setFields([]);
       setLoading(false);
       return;
@@ -36,11 +39,19 @@ export function useFieldAccess(targetRole?: string) {
   }, [effectiveRole]);
 
   const canView = (field: string) => {
+    // Super admin has full access
     if (isSuperRole) return true;
+    // Owner has full access to their own data (enforced by RLS at database level)
+    if (effectiveRole === "owner") return true;
+    // Other roles follow field access configuration
     return fields.find((f) => f.field_name === field)?.can_view ?? false;
   };
   const canEdit = (field: string) => {
+    // Super admin has full access
     if (isSuperRole) return true;
+    // Owner has full access to their own data (enforced by RLS at database level)
+    if (effectiveRole === "owner") return true;
+    // Other roles follow field access configuration
     return fields.find((f) => f.field_name === field)?.can_edit ?? false;
   };
 

@@ -31,9 +31,16 @@ const SUPER_NAV = [
   { label: "Pengaturan", icon: Settings, path: "/settings" },
 ];
 
+const OWNER_NAV = [
+  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+  { label: "Group Halal", icon: FolderOpen, path: "/groups" },
+  { label: "Share Link", icon: Link2, path: "/share" },
+  { label: "Komisi", icon: Wallet, path: "/komisi" },
+];
+
 const NAV_ITEMS = {
   super_admin: SUPER_NAV,
-  owner: SUPER_NAV,
+  owner: OWNER_NAV,
   admin: [
     { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { label: "Group Halal", icon: FolderOpen, path: "/groups" },

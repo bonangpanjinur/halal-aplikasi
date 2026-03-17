@@ -24,33 +24,55 @@ interface UserWithRole {
   owner_id?: string | null;
 }
 
-const ROLE_OPTIONS: { value: AppRole; label: string }[] = [
-  { value: "owner", label: "Owner" },
-  { value: "admin", label: "Admin" },
-  { value: "admin_input", label: "Admin Input" },
-  { value: "lapangan", label: "Lapangan" },
-  { value: "nib", label: "NIB" },
-  { value: "umkm", label: "UMKM" },
-];
+// Define which roles can be created by each role
+const CREATABLE_ROLES: Record<AppRole, AppRole[]> = {
+  super_admin: ["owner", "admin", "admin_input", "lapangan", "nib", "umkm"],
+  owner: ["admin", "admin_input", "lapangan", "nib"],
+  admin: ["admin_input", "lapangan", "nib"],
+  admin_input: [],
+  lapangan: [],
+  nib: [],
+  umkm: [],
+};
+
+const ROLE_LABELS: Record<AppRole, string> = {
+  super_admin: "Super Admin",
+  owner: "Owner",
+  admin: "Admin",
+  admin_input: "Admin Input",
+  lapangan: "Lapangan",
+  nib: "NIB",
+  umkm: "UMKM",
+};
 
 export default function UsersManagement() {
-  const { role, user } = useAuth();
+  const { role, user, owner_id } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [owners, setOwners] = useState<UserWithRole[]>([]);
   const [open, setOpen] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newRole, setNewRole] = useState<AppRole>(role === "super_admin" ? "owner" : "admin");
+  const [newRole, setNewRole] = useState<AppRole>("admin");
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const roleOptions = useMemo(
-    () => ROLE_OPTIONS.filter((option) => (role === "super_admin" ? option.value !== "super_admin" : option.value !== "owner" && option.value !== "super_admin")),
-    [role]
-  );
+  // Get creatable roles for current user
+  const creatableRoles = useMemo(() => {
+    if (!role) return [];
+    return CREATABLE_ROLES[role] || [];
+  }, [role]);
 
+  // Filter role options based on what current user can create
+  const roleOptions = useMemo(() => {
+    return creatableRoles.map((r) => ({ value: r, label: ROLE_LABELS[r] }));
+  }, [creatableRoles]);
+
+  // Only super_admin can select owner for non-owner roles
   const canSelectOwner = role === "super_admin" && newRole !== "owner";
+
+  // Check if user can access this page
+  const canAccessPage = role === "super_admin" || role === "owner";
 
   const fetchUsers = async () => {
     if (!user) return;
@@ -67,9 +89,18 @@ export default function UsersManagement() {
       owner_id: p.owner_id ?? null,
     }));
 
-    const visibleUsers = role === "owner"
-      ? merged.filter((item) => item.id === user.id || item.owner_id === user.id)
-      : merged;
+    // Filter users based on current user's role and scope
+    let visibleUsers: UserWithRole[] = [];
+    if (role === "super_admin") {
+      // Super admin sees all users
+      visibleUsers = merged;
+    } else if (role === "owner") {
+      // Owner sees only their own users and themselves
+      visibleUsers = merged.filter((item) => item.id === user.id || item.owner_id === user.id);
+    } else {
+      // Other roles shouldn't access this page
+      visibleUsers = [];
+    }
 
     setUsers(visibleUsers.sort((a, b) => (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "")));
     setOwners(merged.filter((item) => item.role === "owner"));
@@ -82,17 +113,34 @@ export default function UsersManagement() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    // Validate role can be created by current user
+    if (!creatableRoles.includes(newRole)) {
+      toast({ title: "Anda tidak bisa membuat role ini", variant: "destructive" });
+      return;
+    }
+
     if (newPassword.length < 6) {
       toast({ title: "Password minimal 6 karakter", variant: "destructive" });
       return;
     }
+
     if (canSelectOwner && !selectedOwnerId) {
       toast({ title: "Pilih owner terlebih dulu", variant: "destructive" });
       return;
     }
 
     setCreating(true);
-    const ownerId = role === "owner" ? user.id : newRole === "owner" ? undefined : selectedOwnerId;
+
+    // Determine owner_id based on role and current user
+    let ownerId: string | undefined;
+    if (role === "owner") {
+      // Owner can only create users under themselves
+      ownerId = user.id;
+    } else if (role === "super_admin") {
+      // Super admin can assign to specific owner or leave empty for owner role
+      ownerId = newRole === "owner" ? undefined : selectedOwnerId;
+    }
 
     const { data, error } = await supabase.functions.invoke("create-user", {
       body: { email: newEmail, password: newPassword, full_name: newName, role: newRole, owner_id: ownerId },
@@ -110,7 +158,7 @@ export default function UsersManagement() {
     setNewEmail("");
     setNewName("");
     setNewPassword("");
-    setNewRole(role === "super_admin" ? "owner" : "admin");
+    setNewRole(creatableRoles[0] || "admin");
     setSelectedOwnerId("");
     await new Promise((resolve) => setTimeout(resolve, 800));
     fetchUsers();
@@ -138,66 +186,83 @@ export default function UsersManagement() {
 
   const canDeleteUser = (target: UserWithRole) => {
     if (!user || target.id === user.id || target.role === "super_admin") return false;
-    if (role === "super_admin") return true;
-    return target.role !== "owner" && target.owner_id === user.id;
+    if (role === "super_admin") {
+      // Super admin can delete anyone except super_admin and themselves
+      return true;
+    }
+    if (role === "owner") {
+      // Owner can only delete users under them (not other owners)
+      return target.role !== "owner" && target.owner_id === user.id;
+    }
+    return false;
   };
+
+  if (!canAccessPage) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted-foreground">Hanya Super Admin / Owner yang bisa mengakses halaman ini.</p>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Kelola User</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" /> Buat User</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Buat User Baru</DialogTitle>
-              <DialogDescription>
-                {role === "super_admin" ? "Super admin bisa membuat owner dan user tenant." : "Owner bisa membuat user untuk timnya sendiri."}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Nama Lengkap</Label>
-                <Input value={newName} onChange={(e) => setNewName(e.target.value)} required maxLength={100} />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required maxLength={255} />
-              </div>
-              <div className="space-y-2">
-                <Label>Password</Label>
-                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} />
-              </div>
-              <div className="space-y-2">
-                <Label>Role</Label>
-                <Select value={newRole} onValueChange={(value) => setNewRole(value as AppRole)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {roleOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {canSelectOwner && (
+        {creatableRoles.length > 0 && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button><Plus className="mr-2 h-4 w-4" /> Buat User</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Buat User Baru</DialogTitle>
+                <DialogDescription>
+                  {role === "super_admin" ? "Super admin bisa membuat owner dan user tenant." : "Owner bisa membuat user untuk timnya sendiri."}
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Owner</Label>
-                  <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
-                    <SelectTrigger><SelectValue placeholder="Pilih owner" /></SelectTrigger>
+                  <Label>Nama Lengkap</Label>
+                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required maxLength={100} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required maxLength={255} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Password</Label>
+                  <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select value={newRole} onValueChange={(value) => setNewRole(value as AppRole)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {owners.map((ownerItem) => (
-                        <SelectItem key={ownerItem.id} value={ownerItem.id}>{ownerItem.full_name || ownerItem.email || ownerItem.id}</SelectItem>
+                      {roleOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-              <Button type="submit" className="w-full" disabled={creating}>{creating ? "Membuat..." : "Buat User"}</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+                {canSelectOwner && (
+                  <div className="space-y-2">
+                    <Label>Owner</Label>
+                    <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
+                      <SelectTrigger><SelectValue placeholder="Pilih owner" /></SelectTrigger>
+                      <SelectContent>
+                        {owners.map((ownerItem) => (
+                          <SelectItem key={ownerItem.id} value={ownerItem.id}>{ownerItem.full_name || ownerItem.email || ownerItem.id}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button type="submit" className="w-full" disabled={creating}>{creating ? "Membuat..." : "Buat User"}</Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Card>
