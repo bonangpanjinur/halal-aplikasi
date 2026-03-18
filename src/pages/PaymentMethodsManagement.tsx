@@ -23,14 +23,6 @@ interface PaymentMethod {
   display_order: number;
 }
 
-interface OwnerPaymentMethod {
-  id: string;
-  owner_id: string;
-  payment_method_id: string;
-  is_preferred: boolean;
-  payment_methods?: PaymentMethod;
-}
-
 export default function PaymentMethodsManagement() {
   const { role } = useAuth();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -51,10 +43,10 @@ export default function PaymentMethodsManagement() {
 
   const fetchPaymentMethods = async () => {
     try {
-      const { data, error } = await supabase
-        .from("payment_methods")
+      const { data, error } = await (supabase
+        .from("payment_methods" as any)
         .select("*")
-        .order("display_order", { ascending: true });
+        .order("display_order", { ascending: true }) as any);
       
       if (error) throw error;
       setPaymentMethods(data || []);
@@ -80,9 +72,8 @@ export default function PaymentMethodsManagement() {
     setSaving(true);
     try {
       if (editingId) {
-        // Update existing
-        const { error } = await supabase
-          .from("payment_methods")
+        const { error } = await (supabase
+          .from("payment_methods" as any)
           .update({
             name: formData.name,
             description: formData.description,
@@ -93,14 +84,13 @@ export default function PaymentMethodsManagement() {
             display_order: formData.display_order,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", editingId);
+          .eq("id", editingId) as any);
         
         if (error) throw error;
         toast({ title: "Metode pembayaran berhasil diperbarui" });
       } else {
-        // Create new
-        const { error } = await supabase
-          .from("payment_methods")
+        const { error } = await (supabase
+          .from("payment_methods" as any)
           .insert([{
             name: formData.name,
             description: formData.description,
@@ -109,7 +99,7 @@ export default function PaymentMethodsManagement() {
             bank_code: formData.bank_code,
             is_active: formData.is_active,
             display_order: formData.display_order,
-          }]);
+          }]) as any);
         
         if (error) throw error;
         toast({ title: "Metode pembayaran berhasil ditambahkan" });
@@ -118,13 +108,8 @@ export default function PaymentMethodsManagement() {
       setOpenDialog(false);
       setEditingId(null);
       setFormData({
-        name: "",
-        description: "",
-        account_name: "",
-        account_number: "",
-        bank_code: "",
-        is_active: true,
-        display_order: 0,
+        name: "", description: "", account_name: "", account_number: "",
+        bank_code: "", is_active: true, display_order: 0,
       });
       fetchPaymentMethods();
     } catch (error) {
@@ -143,10 +128,10 @@ export default function PaymentMethodsManagement() {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("payment_methods")
+      const { error } = await (supabase
+        .from("payment_methods" as any)
         .delete()
-        .eq("id", id);
+        .eq("id", id) as any);
       
       if (error) throw error;
       toast({ title: "Metode pembayaran berhasil dihapus" });
@@ -160,13 +145,8 @@ export default function PaymentMethodsManagement() {
   const handleOpenDialog = () => {
     setEditingId(null);
     setFormData({
-      name: "",
-      description: "",
-      account_name: "",
-      account_number: "",
-      bank_code: "",
-      is_active: true,
-      display_order: 0,
+      name: "", description: "", account_name: "", account_number: "",
+      bank_code: "", is_active: true, display_order: 0,
     });
     setOpenDialog(true);
   };
@@ -200,80 +180,42 @@ export default function PaymentMethodsManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Nama Metode *</Label>
-                  <Input
-                    value={formData.name || ""}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Contoh: Bank Transfer - BCA"
-                  />
+                  <Input value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Contoh: Bank Transfer - BCA" />
                 </div>
                 <div className="space-y-2">
                   <Label>Kode Bank *</Label>
-                  <Input
-                    value={formData.bank_code || ""}
-                    onChange={(e) => setFormData({ ...formData, bank_code: e.target.value })}
-                    placeholder="Contoh: BCA, MANDIRI"
-                  />
+                  <Input value={formData.bank_code || ""} onChange={(e) => setFormData({ ...formData, bank_code: e.target.value })} placeholder="Contoh: BCA, MANDIRI" />
                 </div>
               </div>
-              
               <div className="space-y-2">
                 <Label>Deskripsi</Label>
-                <Input
-                  value={formData.description || ""}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Deskripsi metode pembayaran"
-                />
+                <Input value={formData.description || ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Deskripsi metode pembayaran" />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Nama Akun</Label>
-                  <Input
-                    value={formData.account_name || ""}
-                    onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
-                    placeholder="Contoh: PT HalalTrack"
-                  />
+                  <Input value={formData.account_name || ""} onChange={(e) => setFormData({ ...formData, account_name: e.target.value })} placeholder="Contoh: PT HalalTrack" />
                 </div>
                 <div className="space-y-2">
                   <Label>Nomor Akun</Label>
-                  <Input
-                    value={formData.account_number || ""}
-                    onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-                    placeholder="Contoh: 1234567890"
-                  />
+                  <Input value={formData.account_number || ""} onChange={(e) => setFormData({ ...formData, account_number: e.target.value })} placeholder="Contoh: 1234567890" />
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Urutan Tampil</Label>
-                  <Input
-                    type="number"
-                    value={formData.display_order || 0}
-                    onChange={(e) => setFormData({ ...formData, display_order: parseInt(e.target.value) })}
-                    placeholder="0"
-                  />
+                  <Input type="number" value={formData.display_order || 0} onChange={(e) => setFormData({ ...formData, display_order: parseInt(e.target.value) })} />
                 </div>
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <div className="flex items-center gap-2 pt-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.is_active}
-                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                      className="rounded border-gray-300"
-                    />
+                    <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })} className="rounded border-gray-300" />
                     <span className="text-sm">{formData.is_active ? "Aktif" : "Nonaktif"}</span>
                   </div>
                 </div>
               </div>
-
               <div className="flex gap-2 justify-end pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setOpenDialog(false)}
-                  disabled={saving}
-                >
+                <Button variant="outline" onClick={() => setOpenDialog(false)} disabled={saving}>
                   <X className="h-4 w-4 mr-2" /> Batal
                 </Button>
                 <Button onClick={handleSave} disabled={saving} className="gap-2">
@@ -305,17 +247,9 @@ export default function PaymentMethodsManagement() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Memuat...
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Memuat...</TableCell></TableRow>
               ) : paymentMethods.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Belum ada metode pembayaran
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Belum ada metode pembayaran</TableCell></TableRow>
               ) : (
                 paymentMethods.map((method) => (
                   <TableRow key={method.id}>
@@ -330,12 +264,7 @@ export default function PaymentMethodsManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(method)}
-                          title="Edit"
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(method)} title="Edit">
                           <Edit2 className="h-4 w-4" />
                         </Button>
                         <AlertDialog>
@@ -347,15 +276,11 @@ export default function PaymentMethodsManagement() {
                           <AlertDialogContent>
                             <AlertDialogHeader>
                               <AlertDialogTitle>Hapus Metode Pembayaran</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Yakin ingin menghapus {method.name}? Tindakan ini tidak bisa dibatalkan.
-                              </AlertDialogDescription>
+                              <AlertDialogDescription>Yakin ingin menghapus {method.name}? Tindakan ini tidak bisa dibatalkan.</AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Batal</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(method.id)}>
-                                Hapus
-                              </AlertDialogAction>
+                              <AlertDialogAction onClick={() => handleDelete(method.id)}>Hapus</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>

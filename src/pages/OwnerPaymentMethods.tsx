@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
@@ -38,24 +37,22 @@ export default function OwnerPaymentMethods() {
     if (!user) return;
 
     try {
-      // Fetch all active payment methods
-      const { data: methods, error: methodsError } = await supabase
-        .from("payment_methods")
+      const { data: methods, error: methodsError } = await (supabase
+        .from("payment_methods" as any)
         .select("*")
         .eq("is_active", true)
-        .order("display_order", { ascending: true });
+        .order("display_order", { ascending: true }) as any);
 
       if (methodsError) throw methodsError;
       setPaymentMethods(methods || []);
 
-      // Fetch owner's selected payment methods
-      const { data: ownerMethods, error: ownerError } = await supabase
-        .from("owner_payment_methods")
+      const { data: ownerMethodsData, error: ownerError } = await (supabase
+        .from("owner_payment_methods" as any)
         .select("*, payment_methods(*)")
-        .eq("owner_id", user.id);
+        .eq("owner_id", user.id) as any);
 
       if (ownerError) throw ownerError;
-      setOwnerMethods(ownerMethods || []);
+      setOwnerMethods(ownerMethodsData || []);
     } catch (error) {
       console.error("Error fetching payment methods:", error);
       toast({ title: "Gagal memuat metode pembayaran", variant: "destructive" });
@@ -75,24 +72,22 @@ export default function OwnerPaymentMethods() {
     setSaving(true);
     try {
       if (isSelected) {
-        // Remove method
-        const { error } = await supabase
-          .from("owner_payment_methods")
+        const { error } = await (supabase
+          .from("owner_payment_methods" as any)
           .delete()
           .eq("owner_id", user.id)
-          .eq("payment_method_id", methodId);
+          .eq("payment_method_id", methodId) as any);
 
         if (error) throw error;
         toast({ title: "Metode pembayaran dihapus" });
       } else {
-        // Add method
-        const { error } = await supabase
-          .from("owner_payment_methods")
+        const { error } = await (supabase
+          .from("owner_payment_methods" as any)
           .insert([{
             owner_id: user.id,
             payment_method_id: methodId,
-            is_preferred: ownerMethods.length === 0, // Set as preferred if first one
-          }]);
+            is_preferred: ownerMethods.length === 0,
+          }]) as any);
 
         if (error) throw error;
         toast({ title: "Metode pembayaran ditambahkan" });
@@ -112,17 +107,15 @@ export default function OwnerPaymentMethods() {
 
     setSaving(true);
     try {
-      // Remove preferred from all
-      await supabase
-        .from("owner_payment_methods")
+      await (supabase
+        .from("owner_payment_methods" as any)
         .update({ is_preferred: false })
-        .eq("owner_id", user.id);
+        .eq("owner_id", user.id) as any);
 
-      // Set this one as preferred
-      const { error } = await supabase
-        .from("owner_payment_methods")
+      const { error } = await (supabase
+        .from("owner_payment_methods" as any)
         .update({ is_preferred: true })
-        .eq("id", ownerMethodId);
+        .eq("id", ownerMethodId) as any);
 
       if (error) throw error;
       toast({ title: "Metode pembayaran utama berhasil diubah" });
@@ -144,7 +137,6 @@ export default function OwnerPaymentMethods() {
   }
 
   const selectedMethodIds = new Set(ownerMethods.map((m) => m.payment_method_id));
-  const preferredMethod = ownerMethods.find((m) => m.is_preferred);
 
   return (
     <div className="space-y-6">
@@ -153,7 +145,6 @@ export default function OwnerPaymentMethods() {
         <h1 className="text-2xl font-bold">Metode Pembayaran</h1>
       </div>
 
-      {/* Selected Payment Methods */}
       <Card>
         <CardHeader>
           <CardTitle>Metode Pembayaran Saya</CardTitle>
@@ -226,58 +217,38 @@ export default function OwnerPaymentMethods() {
         </CardContent>
       </Card>
 
-      {/* Available Payment Methods */}
       <Card>
         <CardHeader>
           <CardTitle>Metode Pembayaran Tersedia</CardTitle>
           <CardDescription>Pilih metode pembayaran yang ingin Anda gunakan</CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8"></TableHead>
-                <TableHead>Nama Metode</TableHead>
-                <TableHead>Kode Bank</TableHead>
-                <TableHead>Nama Akun</TableHead>
-                <TableHead>Nomor Akun</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                    Memuat...
-                  </TableCell>
-                </TableRow>
-              ) : paymentMethods.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                    Belum ada metode pembayaran tersedia
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paymentMethods.map((method) => {
-                  const isSelected = selectedMethodIds.has(method.id);
-                  return (
-                    <TableRow key={method.id} className={isSelected ? "bg-muted/50" : ""}>
-                      <TableCell>
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => handleToggleMethod(method.id, isSelected)}
-                          disabled={saving}
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{method.name}</TableCell>
-                      <TableCell className="text-sm">{method.bank_code}</TableCell>
-                      <TableCell className="text-sm">{method.account_name || "-"}</TableCell>
-                      <TableCell className="text-sm font-mono">{method.account_number || "-"}</TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : paymentMethods.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">Belum ada metode pembayaran tersedia</p>
+          ) : (
+            <div className="space-y-2">
+              {paymentMethods.map((method) => {
+                const isSelected = selectedMethodIds.has(method.id);
+                return (
+                  <div
+                    key={method.id}
+                    className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 ${isSelected ? "bg-muted/50 border-primary/30" : ""}`}
+                    onClick={() => handleToggleMethod(method.id, isSelected)}
+                  >
+                    <Checkbox checked={isSelected} disabled={saving} />
+                    <div className="flex-1">
+                      <p className="font-medium">{method.name}</p>
+                      <p className="text-sm text-muted-foreground">{method.bank_code} {method.account_number ? `• ${method.account_number}` : ""}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
