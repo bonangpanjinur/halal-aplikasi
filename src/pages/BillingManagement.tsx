@@ -101,7 +101,7 @@ export default function BillingManagement() {
   const handleGenerateInvoices = async () => {
     setGenerating(true);
     const period = new Date().toISOString().slice(0, 7); // YYYY-MM
-    const { data, error } = await supabase.rpc("generate_monthly_invoices", { target_period: period });
+    const { data, error } = await (supabase.rpc as any)("generate_monthly_invoices", { target_period: period });
     
     if (error) {
       toast({ title: "Gagal membuat invoice", description: error.message, variant: "destructive" });
