@@ -5,32 +5,34 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CreditCard, Receipt, Package, TrendingUp, ExternalLink } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { Receipt, TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Invoice {
   id: string;
   period: string;
   status: string;
   total_amount: number;
-  base_amount: number;
-  usage_amount: number;
   issued_at: string | null;
   paid_at: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
-interface Plan {
+interface InvoiceItem {
   id: string;
-  name: string;
-  description: string;
-  base_price: number;
-  fee_per_certificate: number;
+  invoice_id: string;
+  entry_id: string | null;
+  amount: number;
+  description: string | null;
 }
 
 export default function OwnerBilling() {
   const { user, role } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+  const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
+  const [invoiceItems, setInvoiceItems] = useState<Record<string, InvoiceItem[]>>({});
+  const [billingRate, setBillingRate] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   const formatRp = (n: number) =>
@@ -39,119 +41,128 @@ export default function OwnerBilling() {
   useEffect(() => {
     if (!user || role !== "owner") return;
 
-    const fetchBillingData = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      
-      // Fetch subscription & plan
-      const { data: subData } = await supabase
-        .from("subscriptions" as any)
-        .select("*, billing_plans(*)")
-        .eq("owner_id", user.id)
-        .single();
-      
-      if (subData) {
-        setCurrentPlan((subData as any).billing_plans);
-      }
 
-      // Fetch invoices
-      const { data: invData } = await supabase
-        .from("owner_invoices")
-        .select("*")
-        .eq("owner_id", user.id)
-        .order("period", { ascending: false });
-      
-      setInvoices(invData as any || []);
+      const [{ data: rateData }, { data: invData }] = await Promise.all([
+        supabase
+          .from("owner_billing_rates")
+          .select("fee_per_certificate")
+          .eq("owner_id", user.id)
+          .single(),
+        supabase
+          .from("owner_invoices")
+          .select("*")
+          .eq("owner_id", user.id)
+          .order("period", { ascending: false }),
+      ]);
+
+      setBillingRate(rateData?.fee_per_certificate ?? 0);
+      setInvoices((invData as Invoice[]) || []);
       setLoading(false);
     };
 
-    fetchBillingData();
+    fetchData();
   }, [user, role]);
+
+  const toggleInvoiceItems = async (invoiceId: string) => {
+    if (expandedInvoice === invoiceId) {
+      setExpandedInvoice(null);
+      return;
+    }
+    setExpandedInvoice(invoiceId);
+
+    if (!invoiceItems[invoiceId]) {
+      const { data } = await supabase
+        .from("owner_invoice_items")
+        .select("*")
+        .eq("invoice_id", invoiceId)
+        .order("created_at", { ascending: false });
+      setInvoiceItems((prev) => ({ ...prev, [invoiceId]: (data as InvoiceItem[]) || [] }));
+    }
+  };
+
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case "paid":
+        return <Badge className="bg-green-600">Lunas</Badge>;
+      case "issued":
+        return <Badge variant="destructive">Belum Bayar</Badge>;
+      default:
+        return <Badge variant="secondary">Draft</Badge>;
+    }
+  };
+
+  const currentPeriod = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  const currentInvoice = invoices.find((i) => i.period === new Date().toISOString().slice(0, 7));
 
   if (role !== "owner") {
     return (
       <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Hanya Owner yang dapat mengakses halaman penagihan ini.</p>
+        <p className="text-muted-foreground">Hanya Owner yang dapat mengakses halaman ini.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Penagihan & Paket</h1>
-        <Button variant="outline" className="gap-2">
-          <CreditCard className="h-4 w-4" /> Metode Pembayaran
-        </Button>
-      </div>
+      <h1 className="text-2xl font-bold">Tagihan Platform</h1>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* Current Plan */}
-        <Card className="md:col-span-1">
+      {/* Summary Cards */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Package className="h-5 w-5 text-primary" /> Paket Saat Ini
+              <TrendingUp className="h-5 w-5 text-primary" /> Estimasi Bulan Ini
             </CardTitle>
+            <CardDescription>{currentPeriod}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {currentPlan ? (
-              <>
-                <div>
-                  <h3 className="text-2xl font-bold text-primary">{currentPlan.name}</h3>
-                  <p className="text-sm text-muted-foreground">{currentPlan.description}</p>
-                </div>
-                <div className="space-y-1 border-t pt-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Biaya Dasar:</span>
-                    <span className="font-medium">{formatRp(currentPlan.base_price)}/bln</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Per Sertifikat:</span>
-                    <span className="font-medium">{formatRp(currentPlan.fee_per_certificate)}</span>
-                  </div>
-                </div>
-                <Button className="w-full" variant="secondary">Upgrade Paket</Button>
-              </>
-            ) : (
-              <div className="py-4 text-center">
-                <p className="text-sm text-muted-foreground">Belum berlangganan paket apapun.</p>
-                <Button className="mt-4 w-full">Pilih Paket</Button>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Tarif per Sertifikat</span>
+              <span className="font-medium">{formatRp(billingRate)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total Sertifikat Bulan Ini</span>
+              <span className="font-medium">
+                {currentInvoice ? Math.round(currentInvoice.total_amount / (billingRate || 1)) : 0}
+              </span>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-4">
+              <div className="flex items-center justify-between font-bold">
+                <span>Total Estimasi</span>
+                <span className="text-primary text-xl">{formatRp(currentInvoice?.total_amount || 0)}</span>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Usage Stats */}
-        <Card className="md:col-span-2">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <TrendingUp className="h-5 w-5 text-primary" /> Estimasi Tagihan Berjalan
-            </CardTitle>
-            <CardDescription>Bulan {new Date().toLocaleDateString("id-ID", { month: 'long', year: 'numeric' })}</CardDescription>
+            <CardTitle className="text-lg">Ringkasan</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-8 py-2">
-              <div>
-                <p className="text-sm text-muted-foreground">Biaya Berlangganan</p>
-                <p className="text-2xl font-bold">{formatRp(currentPlan?.base_price || 0)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Biaya Sertifikat (Usage)</p>
-                <p className="text-2xl font-bold">{formatRp(invoices[0]?.usage_amount || 0)}</p>
-              </div>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total Invoice</span>
+              <span className="font-bold">{invoices.length}</span>
             </div>
-            <div className="mt-6 rounded-lg bg-muted/50 p-4">
-              <div className="flex items-center justify-between font-bold">
-                <span>Total Estimasi</span>
-                <span className="text-primary text-xl">
-                  {formatRp((currentPlan?.base_price || 0) + (invoices[0]?.usage_amount || 0))}
-                </span>
-              </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Lunas</span>
+              <span className="font-bold text-green-600">{invoices.filter((i) => i.status === "paid").length}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Belum Bayar</span>
+              <span className="font-bold text-destructive">{invoices.filter((i) => i.status === "issued").length}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Draft</span>
+              <span className="font-bold">{invoices.filter((i) => i.status === "draft").length}</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Invoice History */}
+      {/* Invoice Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -162,41 +173,88 @@ export default function OwnerBilling() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Periode</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Biaya Dasar</TableHead>
-                <TableHead>Biaya Usage</TableHead>
                 <TableHead>Total Tagihan</TableHead>
+                <TableHead>Tanggal Terbit</TableHead>
                 <TableHead>Tanggal Bayar</TableHead>
-                <TableHead className="w-20">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Memuat...</TableCell></TableRow>
-              ) : invoices.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Belum ada invoice</TableCell></TableRow>
-              ) : invoices.map((inv) => (
-                <TableRow key={inv.id}>
-                  <TableCell className="font-medium">{inv.period}</TableCell>
-                  <TableCell>
-                    <Badge variant={inv.status === "paid" ? "default" : inv.status === "draft" ? "secondary" : "destructive"}>
-                      {inv.status === "paid" ? "Lunas" : inv.status === "draft" ? "Draft" : "Belum Bayar"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{formatRp(inv.base_amount || 0)}</TableCell>
-                  <TableCell className="font-mono text-sm">{formatRp(inv.usage_amount || 0)}</TableCell>
-                  <TableCell className="font-bold">{formatRp(inv.total_amount)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString("id-ID") : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" title="Lihat Detail">
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Memuat...</TableCell>
                 </TableRow>
-              ))}
+              ) : invoices.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Belum ada invoice</TableCell>
+                </TableRow>
+              ) : (
+                invoices.map((inv) => (
+                  <Collapsible key={inv.id} open={expandedInvoice === inv.id} asChild>
+                    <>
+                      <CollapsibleTrigger asChild>
+                        <TableRow
+                          className="cursor-pointer"
+                          onClick={() => toggleInvoiceItems(inv.id)}
+                        >
+                          <TableCell>
+                            {expandedInvoice === inv.id ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium">{inv.period}</TableCell>
+                          <TableCell>{statusBadge(inv.status)}</TableCell>
+                          <TableCell className="font-bold">{formatRp(inv.total_amount)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {inv.issued_at ? new Date(inv.issued_at).toLocaleDateString("id-ID") : "-"}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString("id-ID") : "-"}
+                          </TableCell>
+                        </TableRow>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent asChild>
+                        <TableRow className="bg-muted/30 hover:bg-muted/30">
+                          <TableCell colSpan={6} className="p-0">
+                            <div className="px-6 py-3">
+                              <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase">Detail Item</p>
+                              {!invoiceItems[inv.id] ? (
+                                <p className="text-sm text-muted-foreground">Memuat...</p>
+                              ) : invoiceItems[inv.id].length === 0 ? (
+                                <p className="text-sm text-muted-foreground">Tidak ada item</p>
+                              ) : (
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Deskripsi</TableHead>
+                                      <TableHead className="text-right">Jumlah</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {invoiceItems[inv.id].map((item) => (
+                                      <TableRow key={item.id}>
+                                        <TableCell className="text-sm">{item.description || "-"}</TableCell>
+                                        <TableCell className="text-right font-mono text-sm">{formatRp(item.amount)}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              )}
+                              {inv.notes && (
+                                <p className="mt-2 text-xs text-muted-foreground">Catatan: {inv.notes}</p>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      </CollapsibleContent>
+                    </>
+                  </Collapsible>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
