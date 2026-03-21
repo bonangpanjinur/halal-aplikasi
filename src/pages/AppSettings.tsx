@@ -219,12 +219,21 @@ export default function AppSettings() {
   const handleSaveRates = async () => {
     setSavingRates(true);
     for (const [r, amount] of Object.entries(rates)) {
-      await supabase
-        .from("commission_rates")
-        .upsert(
-          { role: r as any, amount_per_entry: amount, updated_at: new Date().toISOString() },
-          { onConflict: "role" }
-        );
+      if (isOwner && user) {
+        await supabase
+          .from("commission_rates")
+          .upsert(
+            { role: r as any, amount_per_entry: amount, owner_id: user.id, updated_at: new Date().toISOString() },
+            { onConflict: "role,owner_id" }
+          );
+      } else {
+        await supabase
+          .from("commission_rates")
+          .upsert(
+            { role: r as any, amount_per_entry: amount, updated_at: new Date().toISOString() },
+            { onConflict: "role" }
+          );
+      }
     }
     setSavingRates(false);
     toast({ title: "Tarif komisi berhasil disimpan" });
