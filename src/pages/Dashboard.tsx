@@ -271,7 +271,7 @@ export default function Dashboard() {
   const cards = [
     { label: "Group Halal", value: stats.groups, icon: FolderOpen, show: true },
     { label: "Data Entri", value: stats.entries, icon: FileText, show: true },
-    { label: "Total User", value: stats.users, icon: Users, show: role === "super_admin" },
+    { label: "Total User", value: stats.users, icon: Users, show: role === "super_admin" || role === "owner" },
     { label: "Link Aktif", value: stats.links, icon: Link2, show: true },
   ];
 
