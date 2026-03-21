@@ -59,6 +59,7 @@ const STATUS_OPTIONS = [
 export default function AppSettings() {
   const { role, user } = useAuth();
   const isOwner = role === "owner";
+  const [appName, setAppName] = useState("HalalTrack");
   const [primaryColor, setPrimaryColor] = useState("217 91% 50%");
   const [logoUrl, setLogoUrl] = useState("");
   const [saving, setSaving] = useState(false);
