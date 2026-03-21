@@ -189,8 +189,9 @@ export default function Dashboard() {
 
     const fetchChartData = async () => {
       const isSuperAdmin = role === "super_admin";
+      const isOwner = role === "owner";
       let statusQuery = supabase.from("data_entries").select("status");
-      if (!isSuperAdmin && user) statusQuery = statusQuery.eq("created_by", user.id);
+      if (!isSuperAdmin && !isOwner && user) statusQuery = statusQuery.eq("created_by", user.id);
       const { data: entries } = await statusQuery;
       if (entries) {
         const counts: Record<string, number> = {};
@@ -206,7 +207,7 @@ export default function Dashboard() {
       }
 
       let groupQuery = supabase.from("data_entries").select("group_id, groups(name)");
-      if (!isSuperAdmin && user) groupQuery = groupQuery.eq("created_by", user.id);
+      if (!isSuperAdmin && !isOwner && user) groupQuery = groupQuery.eq("created_by", user.id);
       const { data: entryGroups } = await groupQuery;
       if (entryGroups) {
         const groupCounts: Record<string, { name: string; count: number }> = {};
