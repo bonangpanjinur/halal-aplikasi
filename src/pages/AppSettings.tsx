@@ -115,10 +115,16 @@ export default function AppSettings() {
     load();
   }, []);
 
-  // Load commission rates
+  // Load commission rates (scoped by owner_id for owner role)
   useEffect(() => {
     const loadRates = async () => {
-      const { data } = await supabase.from("commission_rates").select("role, amount_per_entry");
+      let query = supabase.from("commission_rates").select("role, amount_per_entry");
+      if (isOwner && user) {
+        query = query.eq("owner_id", user.id);
+      } else {
+        query = query.is("owner_id", null);
+      }
+      const { data } = await query;
       if (data) {
         const r: Record<string, number> = {};
         data.forEach((row: any) => { r[row.role] = row.amount_per_entry; });
@@ -126,7 +132,7 @@ export default function AppSettings() {
       }
     };
     loadRates();
-  }, []);
+  }, [isOwner, user]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--primary", primaryColor);
