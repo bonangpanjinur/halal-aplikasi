@@ -251,17 +251,23 @@ export default function AppSettings() {
     <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">Pengaturan</h1>
 
-      <Tabs defaultValue="tampilan">
+      <Tabs defaultValue={isOwner ? "komisi" : "tampilan"}>
         <TabsList className="w-full flex-wrap">
-          <TabsTrigger value="tampilan" className="flex-1 gap-2">
-            <Palette className="h-4 w-4" /> Tampilan
-          </TabsTrigger>
-          <TabsTrigger value="akses" className="flex-1 gap-2">
-            <ShieldCheck className="h-4 w-4" /> Hak Akses
-          </TabsTrigger>
-          <TabsTrigger value="siap_input" className="flex-1 gap-2">
-            <ClipboardCheck className="h-4 w-4" /> Siap Input
-          </TabsTrigger>
+          {!isOwner && (
+            <TabsTrigger value="tampilan" className="flex-1 gap-2">
+              <Palette className="h-4 w-4" /> Tampilan
+            </TabsTrigger>
+          )}
+          {!isOwner && (
+            <TabsTrigger value="akses" className="flex-1 gap-2">
+              <ShieldCheck className="h-4 w-4" /> Hak Akses
+            </TabsTrigger>
+          )}
+          {!isOwner && (
+            <TabsTrigger value="siap_input" className="flex-1 gap-2">
+              <ClipboardCheck className="h-4 w-4" /> Siap Input
+            </TabsTrigger>
+          )}
           <TabsTrigger value="komisi" className="flex-1 gap-2">
             <Wallet className="h-4 w-4" /> Komisi
           </TabsTrigger>
