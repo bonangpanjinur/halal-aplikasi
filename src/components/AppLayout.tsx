@@ -36,9 +36,11 @@ const SUPER_NAV = [
 
 const OWNER_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+  { label: "Kelola User", icon: Users, path: "/users" },
   { label: "Group Halal", icon: FolderOpen, path: "/groups" },
   { label: "Share Link", icon: Link2, path: "/share" },
   { label: "Komisi", icon: Wallet, path: "/komisi" },
+  { label: "Pengaturan", icon: Settings, path: "/settings" },
   { label: "Paket & Billing", icon: CreditCard, path: "/billing" },
   { label: "Metode Pembayaran", icon: CreditCard, path: "/owner-payment-methods" },
 ];
