@@ -152,8 +152,10 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       const isSuperAdmin = role === "super_admin";
+      const isOwner = role === "owner";
+
       let entriesQuery = supabase.from("data_entries").select("id", { count: "exact", head: true });
-      if (!isSuperAdmin && user) entriesQuery = entriesQuery.eq("created_by", user.id);
+      if (!isSuperAdmin && !isOwner && user) entriesQuery = entriesQuery.eq("created_by", user.id);
 
       const [groupsRes, entriesRes] = await Promise.all([
         supabase.from("groups").select("id", { count: "exact", head: true }),
@@ -163,8 +165,11 @@ export default function Dashboard() {
       let usersCount = 0;
       let linksCount = 0;
 
-      if (role === "super_admin") {
+      if (isSuperAdmin) {
         const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true });
+        usersCount = count ?? 0;
+      } else if (isOwner && user) {
+        const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("owner_id", user.id);
         usersCount = count ?? 0;
       }
 
