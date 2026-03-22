@@ -21,7 +21,7 @@ const COLOR_PRESETS = [
   { label: "Merah Tegas", value: "0 84% 50%" },
 ];
 
-const ROLES = [
+const ALL_ROLES = [
   { key: "super_admin", label: "Super Admin" },
   { key: "owner", label: "Owner" },
   { key: "admin", label: "Admin" },
@@ -30,6 +30,8 @@ const ROLES = [
   { key: "nib", label: "NIB" },
   { key: "umkm", label: "UMKM" },
 ];
+
+const OWNER_COMMISSION_ROLES = ["admin", "admin_input", "lapangan", "nib"];
 
 const FIELDS = [
   { key: "nama", label: "Nama" },

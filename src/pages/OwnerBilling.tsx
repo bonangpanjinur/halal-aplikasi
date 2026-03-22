@@ -49,7 +49,7 @@ export default function OwnerBilling() {
           .from("owner_billing_rates")
           .select("fee_per_certificate")
           .eq("owner_id", user.id)
-          .single(),
+          .maybeSingle(),
         supabase
           .from("owner_invoices")
           .select("*")
