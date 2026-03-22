@@ -72,9 +72,17 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: roleError.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Explicitly create/update profile (trigger may not be attached)
     const profileOwnerId = targetRole === "owner" ? newUser.user.id : targetOwnerId;
-    if (profileOwnerId) {
-      await supabaseAdmin.from("profiles").update({ owner_id: profileOwnerId } as any).eq("id", newUser.user.id);
+    const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
+      id: newUser.user.id,
+      full_name: normalizedName,
+      email: normalizedEmail,
+      owner_id: profileOwnerId || null,
+    }, { onConflict: "id" });
+
+    if (profileError) {
+      console.error("Profile upsert error:", profileError.message);
     }
 
     return new Response(JSON.stringify({ user: { id: newUser.user.id, email: normalizedEmail } }), {
