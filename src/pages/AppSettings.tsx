@@ -386,7 +386,7 @@ export default function AppSettings() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {ROLES.map((r) => (
+                  {ALL_ROLES.map((r) => (
                     <div key={r.key} className="space-y-3">
                       <h3 className="font-semibold text-sm border-b pb-2">{r.label}</h3>
                       <p className="text-xs text-muted-foreground font-medium">Field Data</p>
