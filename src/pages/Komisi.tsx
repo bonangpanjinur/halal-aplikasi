@@ -92,8 +92,12 @@ export default function Komisi() {
   };
 
   const fetchUsers = async () => {
-    if (!canManageCommissions) return;
-    const { data } = await supabase.from("profiles").select("id, full_name, email");
+    if (!canManageCommissions || !user) return;
+    let query = supabase.from("profiles").select("id, full_name, email");
+    if (role === "owner") {
+      query = query.eq("owner_id", user.id);
+    }
+    const { data } = await query;
     setUsers(data ?? []);
   };
 

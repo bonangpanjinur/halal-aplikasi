@@ -21,7 +21,7 @@ const COLOR_PRESETS = [
   { label: "Merah Tegas", value: "0 84% 50%" },
 ];
 
-const ROLES = [
+const ALL_ROLES = [
   { key: "super_admin", label: "Super Admin" },
   { key: "owner", label: "Owner" },
   { key: "admin", label: "Admin" },
@@ -30,6 +30,8 @@ const ROLES = [
   { key: "nib", label: "NIB" },
   { key: "umkm", label: "UMKM" },
 ];
+
+const OWNER_COMMISSION_ROLES = ["admin", "admin_input", "lapangan", "nib"];
 
 const FIELDS = [
   { key: "nama", label: "Nama" },
@@ -384,7 +386,7 @@ export default function AppSettings() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {ROLES.map((r) => (
+                  {ALL_ROLES.map((r) => (
                     <div key={r.key} className="space-y-3">
                       <h3 className="font-semibold text-sm border-b pb-2">{r.label}</h3>
                       <p className="text-xs text-muted-foreground font-medium">Field Data</p>
@@ -509,7 +511,7 @@ export default function AppSettings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {ROLES.map((r) => (
+              {(isOwner ? ALL_ROLES.filter(r => OWNER_COMMISSION_ROLES.includes(r.key)) : ALL_ROLES).map((r) => (
                 <div key={r.key} className="flex items-center justify-between rounded-lg border p-3">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{r.label}</span>

@@ -35,13 +35,14 @@ export default function ShareLinks() {
 
   const fetchLinks = async () => {
     if (!user) return;
-    const { data } = await supabase.from("shared_links").select("*").eq("user_id", user.id);
+    // Owner sees all links in their groups (via RLS), others see own links
+    const { data } = await supabase.from("shared_links").select("*");
     if (data) {
       const groupIds = [...new Set(data.map((l: any) => l.group_id))];
       const linkIds = data.map((l: any) => l.id);
       const [{ data: groupData }, { data: entryCountData }] = await Promise.all([
-        supabase.from("groups").select("id, name").in("id", groupIds),
-        supabase.from("data_entries").select("source_link_id").in("source_link_id", linkIds),
+        supabase.from("groups").select("id, name").in("id", groupIds.length > 0 ? groupIds : ["__none__"]),
+        supabase.from("data_entries").select("source_link_id").in("source_link_id", linkIds.length > 0 ? linkIds : ["__none__"]),
       ]);
       const gMap = new Map(groupData?.map((g: any) => [g.id, g.name]));
       const countMap = new Map<string, number>();

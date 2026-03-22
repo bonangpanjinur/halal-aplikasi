@@ -38,7 +38,11 @@ interface AuditLog {
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Clock }> = {
   belum_lengkap: { label: "Belum Lengkap", variant: "destructive", icon: Clock },
   siap_input: { label: "Siap Input", variant: "secondary", icon: CheckCircle2 },
+  lengkap: { label: "Lengkap", variant: "outline", icon: FileCheck },
+  terverifikasi: { label: "Terverifikasi", variant: "default", icon: ShieldCheck },
+  nib_selesai: { label: "NIB Selesai", variant: "default", icon: FileCheck },
   ktp_terdaftar_nib: { label: "KTP Terdaftar NIB", variant: "destructive", icon: AlertTriangle },
+  ktp_terdaftar_sertifikat: { label: "KTP Terdaftar Sertifikat", variant: "destructive", icon: AlertTriangle },
   pengajuan: { label: "Pengajuan", variant: "outline", icon: Send },
   sertifikat_selesai: { label: "Sertifikat Selesai", variant: "default", icon: Award },
   revisi: { label: "Revisi", variant: "destructive", icon: RefreshCw },
