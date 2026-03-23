@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, KeyRound, UserCog } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -24,7 +24,6 @@ interface UserWithRole {
   owner_id?: string | null;
 }
 
-// Define which roles can be created by each role
 const CREATABLE_ROLES: Record<AppRole, AppRole[]> = {
   super_admin: ["owner", "admin", "admin_input", "lapangan", "nib", "umkm"],
   owner: ["admin", "admin_input", "lapangan", "nib"],
@@ -57,32 +56,35 @@ export default function UsersManagement() {
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // Get creatable roles for current user
+  // Edit role state
+  const [editRoleOpen, setEditRoleOpen] = useState(false);
+  const [editRoleUser, setEditRoleUser] = useState<UserWithRole | null>(null);
+  const [editRoleValue, setEditRoleValue] = useState<AppRole>("admin");
+  const [editingRole, setEditingRole] = useState(false);
+
+  // Reset password state
+  const [resetPwOpen, setResetPwOpen] = useState(false);
+  const [resetPwUser, setResetPwUser] = useState<UserWithRole | null>(null);
+  const [resetPwValue, setResetPwValue] = useState("");
+  const [resettingPw, setResettingPw] = useState(false);
+
   const creatableRoles = useMemo(() => {
     if (!role) return [];
     return CREATABLE_ROLES[role] || [];
   }, [role]);
 
-  // Filter role options based on what current user can create
   const roleOptions = useMemo(() => {
     return creatableRoles.map((r) => ({ value: r, label: ROLE_LABELS[r] }));
   }, [creatableRoles]);
 
-  // Only super_admin can select owner for non-owner roles
   const canSelectOwner = role === "super_admin" && newRole !== "owner";
-
-  // Check if user can access this page
   const canAccessPage = role === "super_admin" || role === "owner";
 
   const fetchUsers = async () => {
     if (!user) return;
-
     try {
-      // Fetch profiles with better error handling
       const { data: profiles, error: profilesError } = await supabase.from("profiles").select("*");
       if (profilesError) throw profilesError;
-
-      // Fetch roles with better error handling
       const { data: roles, error: rolesError } = await supabase.from("user_roles").select("*");
       if (rolesError) throw rolesError;
 
@@ -95,17 +97,11 @@ export default function UsersManagement() {
         owner_id: p.owner_id ?? null,
       }));
 
-      // Filter users based on current user's role and scope
       let visibleUsers: UserWithRole[] = [];
       if (role === "super_admin") {
-        // Super admin sees all users
         visibleUsers = merged;
       } else if (role === "owner") {
-        // Owner sees only their own users and themselves
         visibleUsers = merged.filter((item) => item.id === user.id || item.owner_id === user.id);
-      } else {
-        // Other roles shouldn't access this page
-        visibleUsers = [];
       }
 
       setUsers(visibleUsers.sort((a, b) => (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "")));
@@ -118,107 +114,50 @@ export default function UsersManagement() {
 
   useEffect(() => {
     fetchUsers();
-    
-    // Set up real-time subscription for user changes
-    const profilesSubscription = supabase
-      .channel("profiles-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        () => {
-          fetchUsers();
-        }
-      )
-      .subscribe();
-    
-    const rolesSubscription = supabase
-      .channel("roles-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "user_roles" },
-        () => {
-          fetchUsers();
-        }
-      )
-      .subscribe();
-    
-    return () => {
-      profilesSubscription.unsubscribe();
-      rolesSubscription.unsubscribe();
-    };
+    const sub1 = supabase.channel("profiles-changes").on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => fetchUsers()).subscribe();
+    const sub2 = supabase.channel("roles-changes").on("postgres_changes", { event: "*", schema: "public", table: "user_roles" }, () => fetchUsers()).subscribe();
+    return () => { sub1.unsubscribe(); sub2.unsubscribe(); };
   }, [role, user]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-
-    // Validate role can be created by current user
     if (!creatableRoles.includes(newRole)) {
       toast({ title: "Anda tidak bisa membuat role ini", variant: "destructive" });
       return;
     }
-
     if (newPassword.length < 6) {
       toast({ title: "Password minimal 6 karakter", variant: "destructive" });
       return;
     }
-
     if (canSelectOwner && !selectedOwnerId) {
       toast({ title: "Pilih owner terlebih dulu", variant: "destructive" });
       return;
     }
-
     setCreating(true);
 
-    // Determine owner_id based on role and current user
     let ownerId: string | undefined;
     if (role === "owner") {
-      // Owner can only create users under themselves
       ownerId = user.id;
     } else if (role === "super_admin") {
-      // Super admin can assign to specific owner or leave empty for owner role
       ownerId = newRole === "owner" ? undefined : selectedOwnerId;
     }
 
     const { data, error } = await supabase.functions.invoke("create-user", {
       body: { email: newEmail, password: newPassword, full_name: newName, role: newRole, owner_id: ownerId },
     });
-
     setCreating(false);
 
     if (error || data?.error) {
       toast({ title: "Gagal membuat user", description: error?.message || data?.error, variant: "destructive" });
       return;
     }
-
     toast({ title: "User berhasil dibuat" });
     setOpen(false);
-    setNewEmail("");
-    setNewName("");
-    setNewPassword("");
+    setNewEmail(""); setNewName(""); setNewPassword("");
     setNewRole(creatableRoles[0] || "admin");
     setSelectedOwnerId("");
-    
-    // Refresh users list with a shorter delay and real-time subscription
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    fetchUsers();
-    
-    // Set up real-time subscription to catch any updates
-    const profilesSubscription = supabase
-      .channel("profiles-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        () => {
-          fetchUsers();
-        }
-      )
-      .subscribe();
-    
-    // Clean up subscription after 2 seconds
-    setTimeout(() => {
-      profilesSubscription.unsubscribe();
-    }, 2000);
+    setTimeout(() => fetchUsers(), 300);
   };
 
   const handleDelete = async (userId: string) => {
@@ -231,27 +170,72 @@ export default function UsersManagement() {
     fetchUsers();
   };
 
-  const roleBadgeVariant = (value: AppRole | null) => {
-    switch (value) {
-      case "super_admin": return "default";
-      case "owner": return "default";
-      case "admin": return "secondary";
-      case "admin_input": return "secondary";
-      default: return "outline";
+  const handleChangeRole = async () => {
+    if (!editRoleUser) return;
+    setEditingRole(true);
+    const { data, error } = await supabase.functions.invoke("update-user", {
+      body: { user_id: editRoleUser.id, action: "change_role", new_role: editRoleValue },
+    });
+    setEditingRole(false);
+    if (error || data?.error) {
+      toast({ title: "Gagal mengubah role", description: error?.message || data?.error, variant: "destructive" });
+      return;
     }
+    toast({ title: "Role berhasil diubah" });
+    setEditRoleOpen(false);
+    setEditRoleUser(null);
+    fetchUsers();
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPwUser) return;
+    if (resetPwValue.length < 6) {
+      toast({ title: "Password minimal 6 karakter", variant: "destructive" });
+      return;
+    }
+    setResettingPw(true);
+    const { data, error } = await supabase.functions.invoke("update-user", {
+      body: { user_id: resetPwUser.id, action: "reset_password", new_password: resetPwValue },
+    });
+    setResettingPw(false);
+    if (error || data?.error) {
+      toast({ title: "Gagal mereset password", description: error?.message || data?.error, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Password berhasil direset" });
+    setResetPwOpen(false);
+    setResetPwUser(null);
+    setResetPwValue("");
+  };
+
+  const canEditRole = (target: UserWithRole) => {
+    if (!user || target.id === user.id || target.role === "super_admin") return false;
+    if (role === "super_admin") return true;
+    if (role === "owner") return target.owner_id === user.id && target.role !== "owner";
+    return false;
+  };
+
+  const canResetPassword = (target: UserWithRole) => {
+    if (!user || target.id === user.id || target.role === "super_admin") return false;
+    if (role === "super_admin") return true;
+    if (role === "owner") return target.owner_id === user.id && target.role !== "owner";
+    return false;
   };
 
   const canDeleteUser = (target: UserWithRole) => {
     if (!user || target.id === user.id || target.role === "super_admin") return false;
-    if (role === "super_admin") {
-      // Super admin can delete anyone except super_admin and themselves
-      return true;
-    }
-    if (role === "owner") {
-      // Owner can only delete users under them (not other owners)
-      return target.role !== "owner" && target.owner_id === user.id;
-    }
+    if (role === "super_admin") return true;
+    if (role === "owner") return target.role !== "owner" && target.owner_id === user.id;
     return false;
+  };
+
+  const roleBadgeVariant = (value: AppRole | null) => {
+    switch (value) {
+      case "super_admin": return "default";
+      case "owner": return "default";
+      case "admin": case "admin_input": return "secondary";
+      default: return "outline";
+    }
   };
 
   if (!canAccessPage) {
@@ -331,36 +315,66 @@ export default function UsersManagement() {
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 {role === "super_admin" && <TableHead>Owner</TableHead>}
-                <TableHead className="w-16"></TableHead>
+                <TableHead className="w-32 text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {users.map((u) => {
-                const ownerName = owners.find((ownerItem) => ownerItem.id === u.owner_id)?.full_name || owners.find((ownerItem) => ownerItem.id === u.owner_id)?.email || "-";
+                const ownerName = owners.find((o) => o.id === u.owner_id)?.full_name || owners.find((o) => o.id === u.owner_id)?.email || "-";
                 return (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.full_name || "-"}</TableCell>
                     <TableCell>{u.email}</TableCell>
-                    <TableCell><Badge variant={roleBadgeVariant(u.role)}>{u.role?.replace("_", " ") ?? "No role"}</Badge></TableCell>
+                    <TableCell><Badge variant={roleBadgeVariant(u.role)}>{u.role ? ROLE_LABELS[u.role] : "No role"}</Badge></TableCell>
                     {role === "super_admin" && <TableCell>{u.role === "owner" ? "Tenant owner" : ownerName}</TableCell>}
-                    <TableCell>
-                      {canDeleteUser(u) && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Hapus User</AlertDialogTitle>
-                              <AlertDialogDescription>Yakin ingin menghapus {u.full_name || u.email}? Tindakan ini tidak bisa dibatalkan.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Batal</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(u.id)}>Hapus</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {canEditRole(u) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Ubah Role"
+                            onClick={() => {
+                              setEditRoleUser(u);
+                              setEditRoleValue(u.role || "admin");
+                              setEditRoleOpen(true);
+                            }}
+                          >
+                            <UserCog className="h-4 w-4 text-primary" />
+                          </Button>
+                        )}
+                        {canResetPassword(u) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Reset Password"
+                            onClick={() => {
+                              setResetPwUser(u);
+                              setResetPwValue("");
+                              setResetPwOpen(true);
+                            }}
+                          >
+                            <KeyRound className="h-4 w-4 text-amber-600" />
+                          </Button>
+                        )}
+                        {canDeleteUser(u) && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" title="Hapus User"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Hapus User</AlertDialogTitle>
+                                <AlertDialogDescription>Yakin ingin menghapus {u.full_name || u.email}? Tindakan ini tidak bisa dibatalkan.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Batal</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(u.id)}>Hapus</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -374,6 +388,67 @@ export default function UsersManagement() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Role Dialog */}
+      <Dialog open={editRoleOpen} onOpenChange={setEditRoleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ubah Role</DialogTitle>
+            <DialogDescription>
+              Ubah role untuk {editRoleUser?.full_name || editRoleUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Role Saat Ini</Label>
+              <Badge variant={roleBadgeVariant(editRoleUser?.role ?? null)}>
+                {editRoleUser?.role ? ROLE_LABELS[editRoleUser.role] : "No role"}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              <Label>Role Baru</Label>
+              <Select value={editRoleValue} onValueChange={(v) => setEditRoleValue(v as AppRole)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {creatableRoles.map((r) => (
+                    <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleChangeRole} className="w-full" disabled={editingRole}>
+              {editingRole ? "Menyimpan..." : "Simpan Perubahan"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={resetPwOpen} onOpenChange={setResetPwOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Reset password untuk {resetPwUser?.full_name || resetPwUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Password Baru</Label>
+              <Input
+                type="password"
+                value={resetPwValue}
+                onChange={(e) => setResetPwValue(e.target.value)}
+                minLength={6}
+                placeholder="Minimal 6 karakter"
+              />
+            </div>
+            <Button onClick={handleResetPassword} className="w-full" disabled={resettingPw || resetPwValue.length < 6}>
+              {resettingPw ? "Mereset..." : "Reset Password"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
