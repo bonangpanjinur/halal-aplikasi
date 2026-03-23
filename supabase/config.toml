@@ -9,5 +9,8 @@ verify_jwt = false
 [functions.delete-user]
 verify_jwt = false
 
+[functions.update-user]
+verify_jwt = false
+
 [functions.download-entries]
 verify_jwt = false
