@@ -35,15 +35,15 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "User tidak valid" }), { status: 400, headers: corsHeaders });
     }
 
-    const { data: targetRole } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", user_id).single();
-    const { data: targetProfile } = await supabaseAdmin.from("profiles").select("id, owner_id").eq("id", user_id).single();
+    const { data: targetRole } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", user_id).maybeSingle();
+    const { data: targetProfile } = await supabaseAdmin.from("profiles").select("id, owner_id").eq("id", user_id).maybeSingle();
 
-    if (!targetRole) {
+    if (!targetRole && !targetProfile) {
       return new Response(JSON.stringify({ error: "User tidak ditemukan" }), { status: 404, headers: corsHeaders });
     }
 
     if (callerRole.role === "owner") {
-      if (["super_admin", "owner"].includes(targetRole.role)) {
+      if (targetRole && ["super_admin", "owner"].includes(targetRole.role)) {
         return new Response(JSON.stringify({ error: "Owner hanya bisa menghapus user di bawah tenantnya" }), { status: 403, headers: corsHeaders });
       }
       if (targetProfile?.owner_id !== caller.id) {
