@@ -19,6 +19,7 @@ import PublicStats from "@/pages/PublicStats";
 import Profile from "@/pages/Profile";
 import AppSettings from "@/pages/AppSettings";
 import Komisi from "@/pages/Komisi";
+import CommissionDashboard from "@/pages/CommissionDashboard";
 import OwnerBilling from "@/pages/OwnerBilling";
 import BillingManagement from "@/pages/BillingManagement";
 import PaymentMethodsManagement from "@/pages/PaymentMethodsManagement";
@@ -71,6 +72,7 @@ const AppRoutes = () => (
       <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail /></ProtectedRoute>} />
       <Route path="/share" element={<ProtectedRoute><ShareLinks /></ProtectedRoute>} />
       <Route path="/komisi" element={<ProtectedRoute><Komisi /></ProtectedRoute>} />
+      <Route path="/commission-dashboard" element={<ProtectedRoute allowedRoles={["super_admin"]}><CommissionDashboard /></ProtectedRoute>} />
       <Route path="/billing" element={<ProtectedRoute allowedRoles={["owner"]}><OwnerBilling /></ProtectedRoute>} />
       <Route path="/billing-management" element={<ProtectedRoute allowedRoles={["super_admin"]}><BillingManagement /></ProtectedRoute>} />
       <Route path="/payment-methods" element={<ProtectedRoute allowedRoles={["super_admin"]}><PaymentMethodsManagement /></ProtectedRoute>} />

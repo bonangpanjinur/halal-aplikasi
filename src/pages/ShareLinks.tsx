@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Copy, QrCode, Trash2 } from "lucide-react";
+import { Plus, Copy, QrCode, Trash2, User, Edit2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 interface LinkRow {
   id: string;
@@ -17,8 +18,10 @@ interface LinkRow {
   is_active: boolean;
   created_at: string;
   user_id: string;
+  pic_id: string | null;
   group_name?: string;
   entry_count?: number;
+  pic_name?: string;
 }
 
 interface GroupOption {
@@ -26,30 +29,52 @@ interface GroupOption {
   name: string;
 }
 
+interface ProfileOption {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 export default function ShareLinks() {
   const { user } = useAuth();
   const [links, setLinks] = useState<LinkRow[]>([]);
   const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [selectedGroup, setSelectedGroup] = useState("");
+  const [selectedPic, setSelectedPic] = useState("");
   const [creating, setCreating] = useState(false);
+  
+  const [editingLink, setEditingLink] = useState<LinkRow | null>(null);
+  const [editPicId, setEditPicId] = useState("");
+  const [updating, setUpdating] = useState(false);
 
   const fetchLinks = async () => {
     if (!user) return;
-    // Owner sees all links in their groups (via RLS), others see own links
     const { data } = await supabase.from("shared_links").select("*");
     if (data) {
       const groupIds = [...new Set(data.map((l: any) => l.group_id))];
       const linkIds = data.map((l: any) => l.id);
-      const [{ data: groupData }, { data: entryCountData }] = await Promise.all([
+      const picIds = [...new Set(data.map((l: any) => l.pic_id).filter(Boolean))];
+      
+      const [{ data: groupData }, { data: entryCountData }, { data: profileData }] = await Promise.all([
         supabase.from("groups").select("id, name").in("id", groupIds.length > 0 ? groupIds : ["__none__"]),
         supabase.from("data_entries").select("source_link_id").in("source_link_id", linkIds.length > 0 ? linkIds : ["__none__"]),
+        supabase.from("profiles").select("id, full_name").in("id", picIds.length > 0 ? picIds : ["__none__"]),
       ]);
+      
       const gMap = new Map(groupData?.map((g: any) => [g.id, g.name]));
+      const pMap = new Map(profileData?.map((p: any) => [p.id, p.full_name]));
       const countMap = new Map<string, number>();
       (entryCountData ?? []).forEach((e: any) => {
         countMap.set(e.source_link_id, (countMap.get(e.source_link_id) || 0) + 1);
       });
-      setLinks(data.map((l: any) => ({ ...l, group_name: gMap.get(l.group_id), entry_count: countMap.get(l.id) || 0 })));
+      
+      setLinks(data.map((l: any) => ({ 
+        ...l, 
+        group_name: gMap.get(l.group_id), 
+        entry_count: countMap.get(l.id) || 0,
+        pic_name: pMap.get(l.pic_id) || "Belum diatur"
+      })));
     }
   };
 
@@ -58,9 +83,15 @@ export default function ShareLinks() {
     setGroups(data ?? []);
   };
 
+  const fetchProfiles = async () => {
+    const { data } = await supabase.from("profiles").select("id, full_name, email");
+    setProfiles(data ?? []);
+  };
+
   useEffect(() => {
     fetchLinks();
     fetchGroups();
+    fetchProfiles();
   }, [user]);
 
   const handleCreate = async () => {
@@ -69,6 +100,7 @@ export default function ShareLinks() {
     const { error } = await supabase.from("shared_links").insert({
       user_id: user.id,
       group_id: selectedGroup,
+      pic_id: selectedPic || null,
     } as any);
     setCreating(false);
     if (error) {
@@ -76,6 +108,24 @@ export default function ShareLinks() {
     } else {
       toast({ title: "Link dibuat" });
       setSelectedGroup("");
+      setSelectedPic("");
+      fetchLinks();
+    }
+  };
+
+  const handleUpdatePic = async () => {
+    if (!editingLink) return;
+    setUpdating(true);
+    const { error } = await supabase
+      .from("shared_links")
+      .update({ pic_id: editPicId || null } as any)
+      .eq("id", editingLink.id);
+    setUpdating(false);
+    if (error) {
+      toast({ title: "Gagal update PIC", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "PIC diperbarui" });
+      setEditingLink(null);
       fetchLinks();
     }
   };
@@ -86,6 +136,7 @@ export default function ShareLinks() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!confirm("Hapus link ini?")) return;
     await supabase.from("shared_links").delete().eq("id", id);
     fetchLinks();
   };
@@ -111,15 +162,28 @@ export default function ShareLinks() {
           <CardTitle className="text-base">Buat Link Baru</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2">
-            <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-              <SelectTrigger className="flex-1"><SelectValue placeholder="Pilih group..." /></SelectTrigger>
-              <SelectContent>
-                {groups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                <SelectTrigger><SelectValue placeholder="Pilih group..." /></SelectTrigger>
+                <SelectContent>
+                  {groups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <Select value={selectedPic} onValueChange={setSelectedPic}>
+                <SelectTrigger><SelectValue placeholder="Pilih PIC (Opsional)..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Tanpa PIC</SelectItem>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.email})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={handleCreate} disabled={!selectedGroup || creating}>
               <Plus className="mr-2 h-4 w-4" /> Buat
             </Button>
@@ -133,6 +197,7 @@ export default function ShareLinks() {
             <TableHeader>
               <TableRow>
                 <TableHead>Group</TableHead>
+                <TableHead>PIC</TableHead>
                 <TableHead>URL</TableHead>
                 <TableHead>Data Masuk</TableHead>
                 <TableHead>Status</TableHead>
@@ -144,6 +209,22 @@ export default function ShareLinks() {
               {links.map((l) => (
                 <TableRow key={l.id}>
                   <TableCell className="font-medium">{l.group_name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{l.pic_name}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6" 
+                        onClick={() => {
+                          setEditingLink(l);
+                          setEditPicId(l.pic_id || "");
+                        }}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono">
                       /f/{l.slug || "..."}
@@ -181,7 +262,7 @@ export default function ShareLinks() {
               ))}
               {links.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     Belum ada link
                   </TableCell>
                 </TableRow>
@@ -190,6 +271,29 @@ export default function ShareLinks() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!editingLink} onOpenChange={(open) => !open && setEditingLink(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ubah PIC Link</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={editPicId} onValueChange={setEditPicId}>
+              <SelectTrigger><SelectValue placeholder="Pilih PIC..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Tanpa PIC</SelectItem>
+                {profiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.email})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingLink(null)}>Batal</Button>
+            <Button onClick={handleUpdatePic} disabled={updating}>Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -9,7 +9,7 @@ import DataEntryForm from "@/components/DataEntryForm";
 
 export default function PublicForm() {
   const { token, slug } = useParams<{ token?: string; slug?: string }>();
-  const [linkData, setLinkData] = useState<{ group_id: string; user_id: string; link_id: string } | null>(null);
+  const [linkData, setLinkData] = useState<{ group_id: string; user_id: string; link_id: string; pic_id?: string | null } | null>(null);
   const [invalid, setInvalid] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
@@ -21,7 +21,7 @@ export default function PublicForm() {
 
       let query = supabase
         .from("shared_links")
-        .select("id, group_id, user_id, is_active, slug");
+        .select("id, group_id, user_id, is_active, slug, pic_id");
 
       if (slug) {
         query = query.eq("slug", slug);
@@ -34,12 +34,13 @@ export default function PublicForm() {
       if (!data || !data.is_active) {
         setInvalid(true);
       } else {
-        setLinkData({ group_id: data.group_id, user_id: data.user_id, link_id: data.id });
-        // Fetch PIC name
+        setLinkData({ group_id: data.group_id, user_id: data.user_id, link_id: data.id, pic_id: data.pic_id });
+        // Fetch PIC name (prefer pic_id if available, otherwise link creator)
+        const targetPicId = data.pic_id || data.user_id;
         const { data: profile } = await supabase
           .from("profiles")
           .select("full_name, email")
-          .eq("id", data.user_id)
+          .eq("id", targetPicId)
           .single();
         setPicName(profile?.full_name || profile?.email?.split("@")[0] || "");
       }
@@ -120,6 +121,7 @@ export default function PublicForm() {
           isPublic
           sharedLinkUserId={linkData.user_id}
           sourceLinkId={linkData.link_id}
+          picId={linkData.pic_id}
           onCancel={() => {}}
           onSaved={(newTrackingCode?: string) => {
             setTrackingCode(newTrackingCode ?? null);

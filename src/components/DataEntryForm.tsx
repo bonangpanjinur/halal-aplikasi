@@ -29,6 +29,7 @@ interface Props {
   isPublic?: boolean;
   sharedLinkUserId?: string;
   sourceLinkId?: string;
+  picId?: string | null;
 }
 
 function ImagePreview({ file, existingUrl, onRemoveFile }: { file: File | null; existingUrl?: string | null; onRemoveFile: () => void }) {
@@ -79,7 +80,7 @@ function ExistingPhotoPreview({ url, onRemove }: { url: string; onRemove?: () =>
   );
 }
 
-export default function DataEntryForm({ groupId, entry, onCancel, onSaved, isPublic, sharedLinkUserId, sourceLinkId }: Props) {
+export default function DataEntryForm({ groupId, entry, onCancel, onSaved, isPublic, sharedLinkUserId, sourceLinkId, picId }: Props) {
   const { role, user } = useAuth();
   const { canEdit: canEditField, loading: accessLoading } = useFieldAccess(isPublic ? "lapangan" : undefined);
   const isAdmin = role === "super_admin" || role === "admin";
@@ -227,7 +228,7 @@ export default function DataEntryForm({ groupId, entry, onCancel, onSaved, isPub
         ...payload,
         group_id: groupId,
         created_by: isPublic ? sharedLinkUserId : user?.id,
-        pic_user_id: isPublic ? sharedLinkUserId : user?.id,
+        pic_user_id: isPublic ? (picId || sharedLinkUserId) : user?.id,
         source_link_id: sourceLinkId || null,
       } as any).select("id, tracking_code" as any).single();
       error = res.error;

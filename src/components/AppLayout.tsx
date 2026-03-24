@@ -29,6 +29,7 @@ const SUPER_NAV = [
   { label: "Group Halal", icon: FolderOpen, path: "/groups" },
   { label: "Share Link", icon: Link2, path: "/share" },
   { label: "Komisi", icon: Wallet, path: "/komisi" },
+  { label: "Dashboard Komisi", icon: Wallet, path: "/commission-dashboard" },
   { label: "Penagihan", icon: CreditCard, path: "/billing-management" },
   { label: "Metode Pembayaran", icon: CreditCard, path: "/payment-methods" },
   { label: "Pengaturan", icon: Settings, path: "/settings" },
