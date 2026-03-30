@@ -35,7 +35,6 @@ const SUPER_NAV = [
   { label: "Kelola User", icon: Users, path: "/users" },
   { label: "Group Halal", icon: FolderOpen, path: "/groups" },
   { label: "Share Link", icon: Link2, path: "/share" },
-  { label: "Komisi", icon: Wallet, path: "/komisi" },
   { label: "Dashboard Komisi", icon: Wallet, path: "/commission-dashboard" },
   { label: "Penagihan", icon: CreditCard, path: "/billing-management" },
   { label: "Pengaturan", icon: Settings, path: "/settings" },
