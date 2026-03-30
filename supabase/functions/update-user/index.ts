@@ -84,9 +84,15 @@ serve(async (req) => {
         }
       }
 
-      // If changing to owner, set owner_id to self; otherwise keep existing owner_id
+      // If changing to owner, set owner_id to self; 
+      // If changing FROM owner to something else, set owner_id to null (super admin must then assign an owner)
+      // If an owner is changing a user's role, ensure the owner_id is set to the owner's ID
       if (new_role === "owner") {
         await supabaseAdmin.from("profiles").update({ owner_id: user_id }).eq("id", user_id);
+      } else if (targetRole?.role === "owner") {
+        await supabaseAdmin.from("profiles").update({ owner_id: null }).eq("id", user_id);
+      } else if (actorRole === "owner") {
+        await supabaseAdmin.from("profiles").update({ owner_id: caller.id }).eq("id", user_id);
       }
 
       return new Response(JSON.stringify({ success: true, message: "Role berhasil diubah" }), {
@@ -103,6 +109,11 @@ serve(async (req) => {
       const { error } = await supabaseAdmin.auth.admin.updateUserById(user_id, { password: new_password });
       if (error) {
         return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // If an owner is resetting password, ensure the owner_id is set to the owner's ID
+      if (actorRole === "owner") {
+        await supabaseAdmin.from("profiles").update({ owner_id: caller.id }).eq("id", user_id);
       }
 
       return new Response(JSON.stringify({ success: true, message: "Password berhasil direset" }), {

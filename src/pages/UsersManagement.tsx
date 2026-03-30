@@ -254,13 +254,20 @@ export default function UsersManagement() {
   const handleSaveCommission = async () => {
     if (!commUser) return;
     setSavingComm(true);
-    const { error } = await supabase.from("profiles").update({
+    const updateData: any = {
       commission_type: commType,
       monthly_salary: commSalary,
       transport_allowance: commTransport,
       target_ktp: commTarget,
       over_target_rate: commOverRate,
-    } as any).eq("id", commUser.id);
+    };
+
+    // If current user is an owner, ensure the managed user is under them
+    if (role === "owner" && user) {
+      updateData.owner_id = user.id;
+    }
+
+    const { error } = await supabase.from("profiles").update(updateData).eq("id", commUser.id);
     
     setSavingComm(false);
     if (error) {
