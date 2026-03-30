@@ -60,7 +60,7 @@ interface MemberWithProfile {
 
 export default function GroupDetail() {
   const { id: groupId } = useParams<{ id: string }>();
-  const { role, user } = useAuth();
+  const { role, user, owner_id } = useAuth();
   const [group, setGroup] = useState<Tables<"groups"> | null>(null);
   const [entries, setEntries] = useState<DataEntry[]>([]);
   const [members, setMembers] = useState<MemberWithProfile[]>([]);
@@ -192,7 +192,14 @@ export default function GroupDetail() {
   };
 
   const fetchAvailableUsers = async () => {
-    const { data: profiles } = await supabase.from("profiles").select("*");
+    let query = supabase.from("profiles").select("*");
+    
+    // If user is owner, only show users linked to this owner
+    if (role === "owner" && owner_id) {
+      query = query.or(`id.eq.${user?.id},owner_id.eq.${owner_id}`);
+    }
+    
+    const { data: profiles } = await query;
     const { data: existing } = await supabase.from("group_members").select("user_id").eq("group_id", groupId ?? "");
     const existingIds = new Set(existing?.map((e) => e.user_id));
     
@@ -510,10 +517,10 @@ export default function GroupDetail() {
       <Tabs defaultValue="entries">
         <TabsList>
           <TabsTrigger value="entries" className="gap-2"><FileText className="h-4 w-4" /> Data Entri</TabsTrigger>
-          {(role === "super_admin" || role === "admin") && (
+          {(role === "super_admin" || role === "admin" || role === "owner") && (
             <TabsTrigger value="members" className="gap-2"><Users className="h-4 w-4" /> Anggota</TabsTrigger>
           )}
-          {(role === "super_admin" || role === "admin") && (
+          {(role === "super_admin" || role === "admin" || role === "owner") && (
             <TabsTrigger value="audit" className="gap-2" onClick={fetchAuditLogs}>
               <History className="h-4 w-4" /> Audit Log
             </TabsTrigger>
@@ -798,9 +805,9 @@ export default function GroupDetail() {
           )}
         </TabsContent>
 
-        {(role === "super_admin" || role === "admin") && (
+        {(role === "super_admin" || role === "admin" || role === "owner") && (
           <TabsContent value="members" className="mt-4">
-            {role === "super_admin" && (
+            {(role === "super_admin" || role === "owner") && (
               <div className="mb-4">
                 <Dialog open={addMemberOpen} onOpenChange={(o) => { 
                   setAddMemberOpen(o); 
@@ -875,7 +882,7 @@ export default function GroupDetail() {
                       <TableHead>Nama</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
-                      {role === "super_admin" && <TableHead className="w-16"></TableHead>}
+                      {(role === "super_admin" || role === "owner") && <TableHead className="w-16"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -886,7 +893,7 @@ export default function GroupDetail() {
                         <TableCell>
                           <Badge variant="outline">{m.role?.replace("_", " ") ?? "-"}</Badge>
                         </TableCell>
-                        {role === "super_admin" && (
+                        {(role === "super_admin" || role === "owner") && (
                           <TableCell>
                             <Button variant="ghost" size="icon" onClick={() => handleRemoveMember(m.id)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
@@ -909,7 +916,7 @@ export default function GroupDetail() {
           </TabsContent>
         )}
 
-        {(role === "super_admin" || role === "admin") && (
+        {(role === "super_admin" || role === "admin" || role === "owner") && (
           <TabsContent value="audit" className="mt-4">
             <Card>
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
