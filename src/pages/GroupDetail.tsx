@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFieldAccess } from "@/hooks/useFieldAccess";
@@ -69,6 +70,7 @@ export default function GroupDetail() {
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<{ id: string; email: string | null; full_name: string | null }[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
 
   // Link UMKM dialog state
   const [linkUmkmOpen, setLinkUmkmOpen] = useState(false);
@@ -193,8 +195,21 @@ export default function GroupDetail() {
     const { data: profiles } = await supabase.from("profiles").select("*");
     const { data: existing } = await supabase.from("group_members").select("user_id").eq("group_id", groupId ?? "");
     const existingIds = new Set(existing?.map((e) => e.user_id));
-    setAvailableUsers((profiles ?? []).filter((p) => !existingIds.has(p.id)));
+    
+    // Filter out users who are already in the group
+    const filtered = (profiles ?? []).filter((p) => !existingIds.has(p.id));
+    
+    // Sort by name or email
+    setAvailableUsers(filtered.sort((a, b) => 
+      (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "")
+    ));
   };
+
+  const filteredAvailableUsers = availableUsers.filter(u => 
+    !memberSearchQuery || 
+    u.full_name?.toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
+    u.email?.toLowerCase().includes(memberSearchQuery.toLowerCase())
+  );
   const fetchUmkmUsers = async () => {
     const { data: roles } = await supabase
       .from("user_roles")
@@ -770,28 +785,65 @@ export default function GroupDetail() {
           <TabsContent value="members" className="mt-4">
             {role === "super_admin" && (
               <div className="mb-4">
-                <Dialog open={addMemberOpen} onOpenChange={(o) => { setAddMemberOpen(o); if (o) fetchAvailableUsers(); }}>
+                <Dialog open={addMemberOpen} onOpenChange={(o) => { 
+                  setAddMemberOpen(o); 
+                  if (o) {
+                    fetchAvailableUsers();
+                    setMemberSearchQuery("");
+                  }
+                }}>
                   <DialogTrigger asChild>
                     <Button><Plus className="mr-2 h-4 w-4" /> Tambah Anggota</Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                       <DialogTitle>Tambah Anggota</DialogTitle>
-                      <DialogDescription>Pilih user untuk ditambahkan sebagai anggota grup.</DialogDescription>
+                      <DialogDescription>Cari dan pilih user untuk ditambahkan ke grup.</DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                      <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                        <SelectTrigger><SelectValue placeholder="Pilih user..." /></SelectTrigger>
-                        <SelectContent>
-                          {availableUsers.map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.full_name || u.email || u.id}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button className="w-full" onClick={handleAddMember} disabled={!selectedUserId}>
-                        Tambahkan
+                    <div className="space-y-4 pt-4">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Cari nama atau email..."
+                          className="pl-8"
+                          value={memberSearchQuery}
+                          onChange={(e) => setMemberSearchQuery(e.target.value)}
+                        />
+                      </div>
+                      
+                      <ScrollArea className="h-[200px] rounded-md border p-2">
+                        <div className="space-y-1">
+                          {filteredAvailableUsers.length > 0 ? (
+                            filteredAvailableUsers.map((u) => (
+                              <div
+                                key={u.id}
+                                className={cn(
+                                  "flex cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground",
+                                  selectedUserId === u.id && "bg-accent text-accent-foreground"
+                                )}
+                                onClick={() => setSelectedUserId(u.id)}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{u.full_name || "Tanpa Nama"}</span>
+                                  <span className="text-xs text-muted-foreground">{u.email}</span>
+                                </div>
+                                {selectedUserId === u.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="py-6 text-center text-sm text-muted-foreground">
+                              {memberSearchQuery ? "User tidak ditemukan" : "Tidak ada user tersedia"}
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+
+                      <Button 
+                        className="w-full" 
+                        onClick={handleAddMember} 
+                        disabled={!selectedUserId}
+                      >
+                        Tambahkan Anggota
                       </Button>
                     </div>
                   </DialogContent>
