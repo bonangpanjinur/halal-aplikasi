@@ -169,21 +169,30 @@ export default function AppSettings() {
     if (!isSuperAdmin) return;
     setLoadingOwners(true);
     try {
-      // Use a single query with join to get profiles that have 'owner' role
-      const { data, error } = await supabase
+      // Step 1: Get all user IDs that have the 'owner' role
+      const { data: rolesData, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "owner");
+      
+      if (rolesError) throw rolesError;
+      
+      const ownerIds = rolesData?.map(r => r.user_id) || [];
+      
+      if (ownerIds.length === 0) {
+        setOwners([]);
+        return;
+      }
+
+      // Step 2: Get profiles for those specific IDs
+      const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select(`
-          id, 
-          full_name, 
-          email, 
-          platform_fee_per_entry,
-          user_roles!inner(role)
-        `)
-        .eq("user_roles.role", "owner");
+        .select("id, full_name, email, platform_fee_per_entry")
+        .in("id", ownerIds);
       
-      if (error) throw error;
+      if (profilesError) throw profilesError;
       
-      const formattedOwners = (data || []).map((p: any) => ({
+      const formattedOwners = (profilesData || []).map((p: any) => ({
         id: p.id,
         full_name: p.full_name || "Tanpa Nama",
         email: p.email || "No Email",
