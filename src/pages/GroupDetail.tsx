@@ -139,8 +139,16 @@ export default function GroupDetail() {
 
   const fetchMembers = async () => {
     if (!groupId) return;
-    const { data: gm } = await supabase.from("group_members").select("*").eq("group_id", groupId);
-    if (!gm) return;
+    const { data: gm, error: gmError } = await supabase.from("group_members").select("*").eq("group_id", groupId);
+    if (gmError || !gm) {
+      setMembers([]);
+      return;
+    }
+
+    if (gm.length === 0) {
+      setMembers([]);
+      return;
+    }
 
     const userIds = gm.map((m) => m.user_id);
     const { data: profiles } = await supabase.from("profiles").select("*").in("id", userIds);
@@ -192,6 +200,18 @@ export default function GroupDetail() {
   };
 
   const fetchAvailableUsers = async () => {
+    if (!groupId) return;
+    
+    // 1. Fetch existing members first to ensure we have the latest list
+    const { data: existing, error: existingError } = await supabase
+      .from("group_members")
+      .select("user_id")
+      .eq("group_id", groupId);
+    
+    if (existingError) return;
+    const existingIds = new Set(existing?.map((e) => e.user_id));
+
+    // 2. Fetch profiles
     let query = supabase.from("profiles").select("*");
     
     // If user is owner, only show users linked to this owner
@@ -199,14 +219,13 @@ export default function GroupDetail() {
       query = query.or(`id.eq.${user?.id},owner_id.eq.${owner_id}`);
     }
     
-    const { data: profiles } = await query;
-    const { data: existing } = await supabase.from("group_members").select("user_id").eq("group_id", groupId ?? "");
-    const existingIds = new Set(existing?.map((e) => e.user_id));
+    const { data: profiles, error: profilesError } = await query;
+    if (profilesError || !profiles) return;
     
-    // Filter out users who are already in the group
-    const filtered = (profiles ?? []).filter((p) => !existingIds.has(p.id));
+    // 3. Filter out users who are already in the group
+    const filtered = profiles.filter((p) => !existingIds.has(p.id));
     
-    // Sort by name or email
+    // 4. Sort and update state
     setAvailableUsers(filtered.sort((a, b) => 
       (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "")
     ));
