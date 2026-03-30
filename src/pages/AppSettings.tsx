@@ -169,42 +169,28 @@ export default function AppSettings() {
     if (!isSuperAdmin) return;
     setLoadingOwners(true);
     try {
-      // Step 1: Get all users with the 'owner' role
-      const { data: rolesData, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "owner");
+      // Use a single query with join to get profiles that have 'owner' role
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(`
+          id, 
+          full_name, 
+          email, 
+          platform_fee_per_entry,
+          user_roles!inner(role)
+        `)
+        .eq("user_roles.role", "owner");
       
-      if (rolesError) throw rolesError;
+      if (error) throw error;
       
-      const ownerIds = rolesData?.map(r => r.user_id) || [];
+      const formattedOwners = (data || []).map((p: any) => ({
+        id: p.id,
+        full_name: p.full_name || "Tanpa Nama",
+        email: p.email || "No Email",
+        platform_fee_per_entry: Number(p.platform_fee_per_entry) || 0
+      }));
       
-      if (ownerIds.length > 0) {
-        // Step 2: Get profiles for those users
-        const { data: profilesData, error: profilesError } = await supabase
-          .from("profiles")
-          .select("id, full_name, email, platform_fee_per_entry")
-          .in("id", ownerIds);
-          
-        if (profilesError) throw profilesError;
-        
-        // Filter out any potential duplicates and ensure data is clean
-        const uniqueProfiles = (profilesData || []).reduce((acc: OwnerProfile[], current: any) => {
-          if (!acc.find(item => item.id === current.id)) {
-            acc.push({
-              id: current.id,
-              full_name: current.full_name || "Tanpa Nama",
-              email: current.email || "No Email",
-              platform_fee_per_entry: Number(current.platform_fee_per_entry) || 0
-            });
-          }
-          return acc;
-        }, []);
-        
-        setOwners(uniqueProfiles);
-      } else {
-        setOwners([]);
-      }
+      setOwners(formattedOwners);
     } catch (error: any) {
       console.error("Error fetching owners:", error);
       toast({ 
