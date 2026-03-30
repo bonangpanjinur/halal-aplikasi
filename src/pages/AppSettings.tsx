@@ -395,8 +395,8 @@ export default function AppSettings() {
           {!isOwner && <TabsTrigger value="tampilan" className="gap-2 py-2.5"><Palette className="h-4 w-4" /> Tampilan</TabsTrigger>}
           {!isOwner && <TabsTrigger value="akses" className="gap-2 py-2.5"><ShieldCheck className="h-4 w-4" /> Hak Akses</TabsTrigger>}
           {!isOwner && <TabsTrigger value="siap_input" className="gap-2 py-2.5"><ClipboardCheck className="h-4 w-4" /> Siap Input</TabsTrigger>}
-          <TabsTrigger value="komisi" className="gap-2 py-2.5"><Wallet className="h-4 w-4" /> Komisi</TabsTrigger>
-          {isSuperAdmin && <TabsTrigger value="tarif_platform" className="gap-2 py-2.5"><Building2 className="h-4 w-4" /> Tarif Platform</TabsTrigger>}
+          {isOwner && <TabsTrigger value="komisi" className="gap-2 py-2.5"><Wallet className="h-4 w-4" /> Komisi Tim</TabsTrigger>}
+          {isSuperAdmin && <TabsTrigger value="tarif_platform" className="gap-2 py-2.5"><Building2 className="h-4 w-4" /> Tarif Platform Owner</TabsTrigger>}
           {isOwner && <TabsTrigger value="pembayaran" className="gap-2 py-2.5"><CreditCard className="h-4 w-4" /> Pembayaran</TabsTrigger>}
         </TabsList>
 
@@ -512,30 +512,34 @@ export default function AppSettings() {
           </Button>
         </TabsContent>
 
-        {/* Komisi Tab */}
-        <TabsContent value="komisi" className="space-y-6 outline-none">
-          <Card className="border-none shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" /> Tarif Komisi per Entry</CardTitle>
-              <CardDescription>Atur jumlah komisi yang didapatkan setiap role untuk satu data entri yang berhasil.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {Object.entries(rates).map(([r, amount]) => (
-                <div key={r} className="flex items-center gap-4 p-4 border rounded-xl bg-card">
-                  <Label className="w-40 capitalize font-semibold text-sm">{r.replace("_", " ")}</Label>
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">Rp</span>
-                    <Input type="number" value={amount} onChange={(e) => setRates(prev => ({ ...prev, [r]: parseInt(e.target.value) || 0 }))} className="pl-10 h-11" />
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-          <Button onClick={handleSaveRates} disabled={savingRates} className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20">
-            {savingRates ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-            Simpan Tarif Komisi
-          </Button>
-        </TabsContent>
+        {/* Komisi Tab (Owner Only) */}
+        {isOwner && (
+          <TabsContent value="komisi" className="space-y-6 outline-none">
+            <Card className="border-none shadow-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" /> Tarif Komisi Tim</CardTitle>
+                <CardDescription>Atur jumlah komisi yang didapatkan tim Anda untuk satu data entri yang berhasil.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {Object.entries(rates)
+                  .filter(([roleKey]) => !["super_admin", "owner"].includes(roleKey))
+                  .map(([r, amount]) => (
+                    <div key={r} className="flex items-center gap-4 p-4 border rounded-xl bg-card">
+                      <Label className="w-40 capitalize font-semibold text-sm">{r.replace("_", " ")}</Label>
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">Rp</span>
+                        <Input type="number" value={amount} onChange={(e) => setRates(prev => ({ ...prev, [r]: parseInt(e.target.value) || 0 }))} className="pl-10 h-11" />
+                      </div>
+                    </div>
+                  ))}
+              </CardContent>
+            </Card>
+            <Button onClick={handleSaveRates} disabled={savingRates} className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20">
+              {savingRates ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+              Simpan Tarif Komisi Tim
+            </Button>
+          </TabsContent>
+        )}
 
         {/* Tarif Platform Tab (Super Admin Only) */}
         {isSuperAdmin && (
@@ -545,9 +549,9 @@ export default function AppSettings() {
                 <div className="space-y-1">
                   <CardTitle className="flex items-center gap-2 text-xl">
                     <Building2 className="h-6 w-6 text-primary" /> 
-                    Tarif Platform per Owner
+                    Tarif Platform per Sertifikat
                   </CardTitle>
-                  <CardDescription>Kelola biaya platform khusus untuk setiap owner aplikasi.</CardDescription>
+                  <CardDescription>Kelola biaya platform (per sertifikat selesai) yang harus dibayarkan oleh setiap Owner.</CardDescription>
                 </div>
                 <Button variant="outline" size="sm" onClick={fetchOwners} disabled={loadingOwners}>
                   {loadingOwners ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
@@ -567,7 +571,7 @@ export default function AppSettings() {
                         <TableRow>
                           <TableHead className="font-bold h-12">Nama Owner</TableHead>
                           <TableHead className="font-bold h-12">Email Terdaftar</TableHead>
-                          <TableHead className="font-bold h-12 text-right pr-8">Tarif / Entry</TableHead>
+                          <TableHead className="font-bold h-12 text-right pr-8">Tarif / Sertifikat</TableHead>
                           <TableHead className="w-[100px] text-center font-bold h-12">Pengaturan</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -700,11 +704,11 @@ export default function AppSettings() {
         <DialogContent className="sm:max-w-[425px] rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl">Edit Tarif Platform</DialogTitle>
-            <CardDescription>Update biaya platform untuk owner {editingOwner?.full_name}.</CardDescription>
+            <CardDescription>Update biaya platform per sertifikat untuk owner {editingOwner?.full_name}.</CardDescription>
           </DialogHeader>
           <div className="py-6 space-y-4">
             <div className="space-y-2">
-              <Label className="text-sm font-bold">Tarif per Entry (Rp)</Label>
+              <Label className="text-sm font-bold">Tarif per Sertifikat (Rp)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">Rp</span>
                 <Input type="number" value={editFee} onChange={(e) => setEditFee(parseInt(e.target.value) || 0)} className="pl-10 h-12 text-lg font-mono" />
