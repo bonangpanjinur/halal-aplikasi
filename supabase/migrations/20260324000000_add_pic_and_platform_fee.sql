@@ -9,3 +9,6 @@ ADD COLUMN platform_fee_per_entry numeric DEFAULT 0;
 -- Add comment for documentation
 COMMENT ON COLUMN public.shared_links.pic_id IS 'The Person In Charge (PIC) assigned to this share link';
 COMMENT ON COLUMN public.profiles.platform_fee_per_entry IS 'Custom platform fee per entry for this owner';
+
+-- Refresh PostgREST schema cache
+NOTIFY pgrst, 'reload schema';
