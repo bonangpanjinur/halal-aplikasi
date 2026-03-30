@@ -238,7 +238,6 @@ export default function GroupDetail() {
   }, [groupId, role]);
 
   const handleAddMember = async () => {
-    if  const handleAddMember = async () => {
     if (!selectedUserId) return;
 
     // Get the role of the user being added
