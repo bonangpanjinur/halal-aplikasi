@@ -88,6 +88,8 @@ export default function AppSettings() {
   const [savingAccess, setSavingAccess] = useState(false);
   const [savingRates, setSavingRates] = useState(false);
   const [savingSiapInput, setSavingSiapInput] = useState(false);
+  const [defaultPlatformFee, setDefaultPlatformFee] = useState(0);
+  const [savingDefaultFee, setSavingDefaultFee] = useState(false);
 
   const [siapInputFields, setSiapInputFields] = useState<string[]>(["nama", "ktp", "nib", "foto_produk", "foto_verifikasi"]);
   const [rates, setRates] = useState<Record<string, number>>({
@@ -138,6 +140,7 @@ export default function AppSettings() {
           if (row.key === "siap_input_required_fields") {
             try { setSiapInputFields(JSON.parse(row.value ?? "[]")); } catch {}
           }
+          if (row.key === "default_platform_fee") setDefaultPlatformFee(parseInt(row.value ?? "0"));
         });
       }
     };
@@ -338,6 +341,19 @@ export default function AppSettings() {
       toast({ title: "Tarif platform diperbarui" });
       setEditingOwner(null);
       fetchOwners();
+    }
+  };
+
+  const handleSaveDefaultPlatformFee = async () => {
+    setSavingDefaultFee(true);
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert({ key: "default_platform_fee", value: defaultPlatformFee.toString(), updated_at: new Date().toISOString() }, { onConflict: "key" });
+    setSavingDefaultFee(false);
+    if (error) {
+      toast({ title: "Gagal simpan tarif default", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Tarif platform default diperbarui" });
     }
   };
 
@@ -545,13 +561,33 @@ export default function AppSettings() {
         {isSuperAdmin && (
           <TabsContent value="tarif_platform" className="space-y-6 outline-none">
             <Card className="border-none shadow-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg"><Wallet className="h-5 w-5 text-primary" /> Tarif Platform Default</CardTitle>
+                <CardDescription>Atur tarif standar yang akan dikenakan kepada setiap owner baru secara otomatis.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex items-end gap-4">
+                <div className="flex-1 space-y-2">
+                  <Label className="text-sm font-bold">Harga per Sertifikat (Rp)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">Rp</span>
+                    <Input type="number" value={defaultPlatformFee} onChange={(e) => setDefaultPlatformFee(parseInt(e.target.value) || 0)} className="pl-10 h-11" />
+                  </div>
+                </div>
+                <Button onClick={handleSaveDefaultPlatformFee} disabled={savingDefaultFee} className="h-11 px-8 font-semibold">
+                  {savingDefaultFee ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Simpan Harga Default
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-md">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div className="space-y-1">
                   <CardTitle className="flex items-center gap-2 text-xl">
                     <Building2 className="h-6 w-6 text-primary" /> 
-                    Tarif Platform per Sertifikat
+                    Penyesuaian Tarif per Owner
                   </CardTitle>
-                  <CardDescription>Kelola biaya platform (per sertifikat selesai) yang harus dibayarkan oleh setiap Owner.</CardDescription>
+                  <CardDescription>Kelola biaya platform khusus untuk masing-masing owner jika berbeda dari harga default.</CardDescription>
                 </div>
                 <Button variant="outline" size="sm" onClick={fetchOwners} disabled={loadingOwners}>
                   {loadingOwners ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
@@ -571,7 +607,7 @@ export default function AppSettings() {
                         <TableRow>
                           <TableHead className="font-bold h-12">Nama Owner</TableHead>
                           <TableHead className="font-bold h-12">Email Terdaftar</TableHead>
-                          <TableHead className="font-bold h-12 text-right pr-8">Tarif / Sertifikat</TableHead>
+                          <TableHead className="font-bold h-12 text-right pr-8">Tarif Khusus / Sertifikat</TableHead>
                           <TableHead className="w-[100px] text-center font-bold h-12">Pengaturan</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -611,7 +647,7 @@ export default function AppSettings() {
                                   className="h-9 gap-2 font-semibold hover:bg-primary hover:text-primary-foreground transition-all shadow-sm"
                                 >
                                   <Edit2 className="h-3.5 w-3.5" />
-                                  Atur Tarif
+                                  Ubah Tarif
                                 </Button>
                               </TableCell>
                             </TableRow>
