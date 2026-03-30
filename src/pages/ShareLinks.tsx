@@ -100,7 +100,7 @@ export default function ShareLinks() {
     const { error } = await supabase.from("shared_links").insert({
       user_id: user.id,
       group_id: selectedGroup,
-      pic_id: selectedPic || null,
+      pic_id: (selectedPic && selectedPic !== "none") ? selectedPic : null,
     } as any);
     setCreating(false);
     if (error) {
@@ -118,7 +118,7 @@ export default function ShareLinks() {
     setUpdating(true);
     const { error } = await supabase
       .from("shared_links")
-      .update({ pic_id: editPicId || null } as any)
+      .update({ pic_id: (editPicId && editPicId !== "none") ? editPicId : null } as any)
       .eq("id", editingLink.id);
     setUpdating(false);
     if (error) {
