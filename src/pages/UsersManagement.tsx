@@ -152,7 +152,7 @@ export default function UsersManagement() {
       toast({ title: "Gagal membuat user", description: error?.message || data?.error, variant: "destructive" });
       return;
     }
-    toast({ title: "User berhasil dibuat" });
+    toast({ title: "User Berhasil Dibuat", description: `Akun untuk ${newName} telah aktif.`, variant: "success" as any });
     setOpen(false);
     setNewEmail(""); setNewName(""); setNewPassword("");
     setNewRole(creatableRoles[0] || "admin");
@@ -166,7 +166,7 @@ export default function UsersManagement() {
       toast({ title: "Gagal menghapus user", description: error?.message || data?.error, variant: "destructive" });
       return;
     }
-    toast({ title: "User dihapus" });
+    toast({ title: "User Dihapus", description: "Data user telah dihapus dari sistem.", variant: "success" as any });
     fetchUsers();
   };
 
@@ -181,7 +181,7 @@ export default function UsersManagement() {
       toast({ title: "Gagal mengubah role", description: error?.message || data?.error, variant: "destructive" });
       return;
     }
-    toast({ title: "Role berhasil diubah" });
+    toast({ title: "Role Diperbarui", description: "Wewenang user telah berhasil diubah.", variant: "success" as any });
     setEditRoleOpen(false);
     setEditRoleUser(null);
     fetchUsers();
@@ -202,7 +202,7 @@ export default function UsersManagement() {
       toast({ title: "Gagal mereset password", description: error?.message || data?.error, variant: "destructive" });
       return;
     }
-    toast({ title: "Password berhasil direset" });
+    toast({ title: "Password Direset", description: "Kata sandi user telah berhasil diperbarui.", variant: "success" as any });
     setResetPwOpen(false);
     setResetPwUser(null);
     setResetPwValue("");

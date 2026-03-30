@@ -220,7 +220,7 @@ export default function GroupDetail() {
     if (error) {
       toast({ title: "Gagal menghubungkan", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Berhasil dihubungkan ke akun UMKM" });
+      toast({ title: "Berhasil dihubungkan", description: "Akun UMKM telah berhasil dikaitkan.", variant: "success" as any });
       setEntries((prev) => prev.map((e) => e.id === linkUmkmEntryId ? { ...e, umkm_user_id: selectedUmkmUserId || null } as any : e));
       setLinkUmkmOpen(false);
       setLinkUmkmEntryId(null);
@@ -259,7 +259,7 @@ export default function GroupDetail() {
           toast({ 
             title: "Batas Peran Tercapai", 
             description: `Grup ini sudah memiliki 1 ${newUserRole.replace("_", " ")}. Setiap grup hanya boleh memiliki maksimal 1 orang per peran untuk menjaga ketertiban PIC.`, 
-            variant: "destructive" 
+            variant: "warning" as any
           });
           return;
         }
@@ -270,7 +270,7 @@ export default function GroupDetail() {
     if (error) {
       toast({ title: "Gagal", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Anggota ditambahkan" });
+      toast({ title: "Anggota Ditambahkan", description: "User berhasil ditambahkan ke dalam grup.", variant: "success" as any });
       setAddMemberOpen(false);
       setSelectedUserId("");
       fetchMembers();
@@ -354,7 +354,7 @@ export default function GroupDetail() {
       a.remove();
       URL.revokeObjectURL(url);
 
-      toast({ title: "Download berhasil" });
+      toast({ title: "Download Berhasil", description: "File sedang diunduh ke perangkat Anda.", variant: "success" as any });
       setSelectedEntries(new Set());
     } catch (err: any) {
       toast({ title: "Download gagal", description: err.message, variant: "destructive" });

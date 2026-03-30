@@ -45,7 +45,7 @@ export default function Groups() {
     if (error) {
       toast({ title: "Gagal membuat group", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Group berhasil dibuat" });
+      toast({ title: "Grup Berhasil Dibuat", description: `Grup "${newName}" telah siap digunakan.`, variant: "success" as any });
       setOpen(false);
       setNewName("");
       fetchGroups();
@@ -58,7 +58,7 @@ export default function Groups() {
     if (error) {
       toast({ title: "Gagal menghapus", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Group dihapus" });
+      toast({ title: "Grup Dihapus", description: "Data grup telah berhasil dihapus dari sistem.", variant: "success" as any });
       fetchGroups();
     }
     setDeleteTarget(null);
