@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Save, Palette, Type, Image as ImageIcon, ShieldCheck, Wallet, ClipboardCheck, Building2, Edit2, CreditCard, CheckCircle2 } from "lucide-react";
+import { Loader2, Save, Palette, Type, Image as ImageIcon, ShieldCheck, Wallet, ClipboardCheck, Building2, Edit2, CreditCard, CheckCircle2, Users } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAllFieldAccess } from "@/hooks/useFieldAccess";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -309,13 +309,19 @@ export default function AppSettings() {
 
   const handleSaveRates = async () => {
     setSavingRates(true);
-    for (const [r, amount] of Object.entries(rates)) {
-      const payload: any = { role: r, amount_per_entry: amount, updated_at: new Date().toISOString() };
-      if (isOwner && user) payload.owner_id = user.id;
-      await supabase.from("commission_rates").upsert(payload, { onConflict: isOwner ? "role,owner_id" : "role" });
+    try {
+      for (const [r, amount] of Object.entries(rates)) {
+        const payload: any = { role: r, amount_per_entry: amount, updated_at: new Date().toISOString() };
+        if (isOwner && user) payload.owner_id = user.id;
+        await supabase.from("commission_rates").upsert(payload, { onConflict: isOwner ? "role,owner_id" : "role" });
+      }
+      toast({ title: "Tarif komisi berhasil disimpan" });
+    } catch (error: any) {
+      console.error("Error saving rates:", error);
+      toast({ title: "Gagal menyimpan tarif", description: error.message, variant: "destructive" });
+    } finally {
+      setSavingRates(false);
     }
-    setSavingRates(false);
-    toast({ title: "Tarif komisi berhasil disimpan" });
   };
 
   const handleSavePlatformFee = async () => {
