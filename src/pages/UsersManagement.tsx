@@ -299,6 +299,22 @@ export default function UsersManagement() {
     return false;
   };
 
+  const getBonusLabel = () => {
+    if (!commUser) return "Bonus";
+    const userRole = commUser.role;
+    if (userRole === "admin_input") return "Bonus per Sertifikat";
+    if (userRole === "lapangan" || userRole === "nib") return "Bonus per KTP";
+    return "Bonus";
+  };
+
+  const getTargetLabel = () => {
+    if (!commUser) return "Target";
+    const userRole = commUser.role;
+    if (userRole === "admin_input") return "Target (Sertifikat)";
+    if (userRole === "lapangan" || userRole === "nib") return "Target (KTP)";
+    return "Target";
+  };
+
   const roleBadgeVariant = (r: AppRole | null) => {
     if (r === "super_admin") return "destructive";
     if (r === "owner") return "default";
@@ -595,14 +611,24 @@ export default function UsersManagement() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Target (KTP)</Label>
+                    <Label>{getTargetLabel()}</Label>
                     <Input type="number" value={commTarget} onChange={(e) => setCommTarget(Number(e.target.value))} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Bonus per KTP {">"} Target</Label>
+                    <Label>{getBonusLabel()} (Rp)</Label>
                     <Input type="number" value={commOverRate} onChange={(e) => setCommOverRate(Number(e.target.value))} />
                   </div>
                 </div>
+                {commUser && (commUser.role === "lapangan" || commUser.role === "nib") && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-900 dark:text-blue-100">
+                    💡 Diberikan jika melebihi target KTP
+                  </div>
+                )}
+                {commUser && commUser.role === "admin_input" && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-900 dark:text-blue-100">
+                    💡 Bonus per sertifikat yang diproses
+                  </div>
+                )}
               </>
             ) : (
               <div className="p-4 bg-muted rounded-lg text-sm">
