@@ -57,13 +57,12 @@ serve(async (req) => {
     } else if (actorRole === "super_admin") {
       if (targetRole === "owner") {
         // If a super admin creates an owner, the owner is their own owner (self-owned)
-        // We'll set this after the user is created and we have their ID
         targetOwnerId = null; 
       } else {
         // If a super admin creates a non-owner user, they MUST specify an owner
         targetOwnerId = owner_id || null;
         if (!targetOwnerId) {
-          return new Response(JSON.stringify({ error: "Owner wajib dipilih untuk role ini" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          return new Response(JSON.stringify({ error: "Owner wajib dipilih untuk role ini agar terelasi dengan benar" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
     }
@@ -87,7 +86,6 @@ serve(async (req) => {
     const { error: roleError } = await supabaseAdmin.from("user_roles").insert({ user_id: newUserId, role: targetRole });
     if (roleError) {
       console.error("Role assignment error:", roleError);
-      // Attempt to cleanup the created user if role assignment fails
       await supabaseAdmin.auth.admin.deleteUser(newUserId);
       return new Response(JSON.stringify({ error: `Gagal menetapkan role: ${roleError.message}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -105,13 +103,12 @@ serve(async (req) => {
 
     if (profileError) {
       console.error("Profile creation error:", profileError);
-      // Non-fatal for the response, but logged
     }
 
     return new Response(JSON.stringify({ 
       success: true, 
       user: { id: newUserId, email: normalizedEmail },
-      message: "User berhasil dibuat dan ditautkan ke owner" 
+      message: `User berhasil dibuat dan ditautkan ke owner ${targetRole === "owner" ? "dirinya sendiri" : "terpilih"}` 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

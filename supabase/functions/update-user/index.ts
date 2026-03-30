@@ -86,10 +86,12 @@ serve(async (req) => {
         // If user becomes an owner, they are their own owner
         await supabaseAdmin.from("profiles").update({ owner_id: user_id }).eq("id", user_id);
       } else if (targetRole?.role === "owner") {
-        // If user was an owner and is no longer, reset owner_id
-        await supabaseAdmin.from("profiles").update({ owner_id: null }).eq("id", user_id);
+        // If user was an owner and is no longer, they MUST be assigned to an owner
+        // If the actor is an owner, assign to them; if super admin, they must use change_owner later or we set to null for now
+        const defaultOwner = actorRole === "owner" ? caller.id : null;
+        await supabaseAdmin.from("profiles").update({ owner_id: defaultOwner }).eq("id", user_id);
       } else if (actorRole === "owner") {
-        // If an owner is creating/updating a user, assign that user to the owner
+        // If an owner is updating a user, ensure that user is assigned to them
         await supabaseAdmin.from("profiles").update({ owner_id: caller.id }).eq("id", user_id);
       }
 
@@ -136,6 +138,11 @@ serve(async (req) => {
           console.error("Owner validation failed:", { ownerCheckError, ownerRole });
           return new Response(JSON.stringify({ error: "User target owner tidak valid atau tidak memiliki role owner" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
+      } else {
+        // For roles like admin, nib, etc., owner_id should NOT be null based on user requirement
+        if (targetRole && OWNER_MANAGED_ROLES.includes(targetRole.role)) {
+          return new Response(JSON.stringify({ error: "Role ini wajib memiliki owner dan tidak boleh kosong" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
       }
 
       // Update owner_id in profiles table
@@ -157,10 +164,9 @@ serve(async (req) => {
 
       if (groupError) {
         console.error("Group update error (non-fatal):", groupError);
-        // We don't return error here as the primary profile update succeeded
       }
 
-      return new Response(JSON.stringify({ success: true, message: "Owner berhasil diperbarui" }), {
+      return new Response(JSON.stringify({ success: true, message: "Owner berhasil diperbarui dan relasi telah ditetapkan" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
