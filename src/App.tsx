@@ -26,6 +26,7 @@ import PaymentMethodsManagement from "@/pages/PaymentMethodsManagement";
 import OwnerPaymentMethods from "@/pages/OwnerPaymentMethods";
 import UmkmDashboard from "@/pages/UmkmDashboard";
 import Register from "@/pages/Register";
+import Pricing from "@/pages/Pricing";
 import NotFound from "@/pages/NotFound";
 import { ReactNode } from "react";
 
@@ -65,6 +66,7 @@ const AppRoutes = () => (
       <Route path="/tracking" element={<TrackingPage />} />
       <Route path="/tracking/:code" element={<TrackingPage />} />
       <Route path="/statistik" element={<PublicStats />} />
+      <Route path="/pricing" element={<Pricing />} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute allowedRoles={["super_admin", "owner"]}><UsersManagement /></ProtectedRoute>} />

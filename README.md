@@ -1,73 +1,53 @@
-# Welcome to your Lovable project
+# HalalTrack - Platform Pelacakan Sertifikasi Halal
 
-## Project info
+HalalTrack adalah platform manajemen dan pelacakan sertifikasi halal yang dirancang untuk memudahkan UMKM dan pengelola sertifikasi dalam memantau proses sertifikasi secara transparan dan efisien.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Fitur Utama
 
-## How can I edit this code?
+- **Pelacakan Real-time**: Pantau status sertifikasi halal Anda secara langsung.
+- **Manajemen Multi-Owner**: Arsitektur SaaS yang mendukung banyak pengelola (owner) dalam satu platform.
+- **Sistem Billing Transparan**: Perhitungan tarif platform yang jelas berdasarkan volume sertifikat.
+- **Dashboard Komprehensif**: Visualisasi data untuk Super Admin, Owner, dan UMKM.
 
-There are several ways of editing your application.
+## Informasi Tarif & Pemilik
 
-**Use Lovable**
+Kami menjunjung tinggi transparansi dalam operasional platform kami.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### Pemilik Platform
+Platform ini dimiliki dan dioperasikan oleh **PT HalalTrack Indonesia**. 
+Detail kontak pemilik dapat ditemukan di halaman [Pricing & Info Pemilik](/pricing) atau di dashboard Owner.
 
-Changes made via Lovable will be committed automatically to this repo.
+### Struktur Tarif
+Tarif platform dihitung menggunakan model hybrid:
+**Total Tagihan = Biaya Dasar + (Biaya per Sertifikat × Jumlah Sertifikat Selesai)**
 
-**Use your preferred IDE**
+| Paket | Biaya Dasar | Biaya per Sertifikat |
+|-------|-------------|----------------------|
+| **Starter** | Rp 0 | Rp 25.000 |
+| **Professional** | Rp 500.000 | Rp 15.000 |
+| **Enterprise** | Rp 2.000.000 | Rp 5.000 |
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Untuk detail lebih lanjut, silakan baca [Dokumentasi Tarif & Info Pemilik](docs/PRICING_AND_OWNER_INFO.md).
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Dokumentasi Teknis
 
-Follow these steps:
+- [Struktur Role & Hirarki](docs/ROLE_HIERARCHY.md)
+- [Panduan Billing & Multi-Owner](docs/PANDUAN_PENGGUNA_BILLING.md)
+- [Detail Tarif & Info Pemilik](docs/PRICING_AND_OWNER_INFO.md)
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Teknologi yang Digunakan
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS, shadcn-ui
+- **Backend/Database**: Supabase (PostgreSQL, Auth, Storage, Edge Functions)
+- **PWA**: Mendukung instalasi aplikasi di perangkat mobile
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Cara Pengembangan Lokal
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+1. Clone repositori ini
+2. Instal dependensi: `npm install`
+3. Jalankan server pengembangan: `npm run dev`
+4. Buka `http://localhost:5173` di browser Anda
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+© 2026 HalalTrack Indonesia. Seluruh hak cipta dilindungi undang-undang.
