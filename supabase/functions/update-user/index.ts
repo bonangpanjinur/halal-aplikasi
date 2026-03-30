@@ -32,7 +32,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { user_id, action, new_role, new_password } = await req.json();
+    const { user_id, action, new_role, new_password, new_owner_id } = await req.json();
 
     if (!user_id || user_id === caller.id) {
       return new Response(JSON.stringify({ error: "User tidak valid" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -106,6 +106,27 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ success: true, message: "Password berhasil direset" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- ACTION: change_owner ---
+    if (action === "change_owner") {
+      if (actorRole !== "super_admin") {
+        return new Response(JSON.stringify({ error: "Hanya super admin yang bisa mengubah owner" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Cannot change owner of another owner
+      if (targetRole?.role === "owner") {
+        return new Response(JSON.stringify({ error: "Tidak bisa mengubah owner dari user ber-role owner" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const { error } = await supabaseAdmin.from("profiles").update({ owner_id: new_owner_id || null }).eq("id", user_id);
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      return new Response(JSON.stringify({ success: true, message: "Owner berhasil diperbarui" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

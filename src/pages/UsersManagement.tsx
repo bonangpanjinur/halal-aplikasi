@@ -50,7 +50,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
 };
 
 export default function UsersManagement() {
-  const { role, user, owner_id } = useAuth();
+  const { role, user } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [owners, setOwners] = useState<UserWithRole[]>([]);
   const [open, setOpen] = useState(false);
@@ -66,6 +66,12 @@ export default function UsersManagement() {
   const [editRoleUser, setEditRoleUser] = useState<UserWithRole | null>(null);
   const [editRoleValue, setEditRoleValue] = useState<AppRole>("admin");
   const [editingRole, setEditingRole] = useState(false);
+
+  // Edit owner state
+  const [editOwnerOpen, setEditOwnerOpen] = useState(false);
+  const [editOwnerUser, setEditOwnerUser] = useState<UserWithRole | null>(null);
+  const [editOwnerValue, setEditOwnerValue] = useState<string>("");
+  const [editingOwner, setEditingOwner] = useState(false);
 
   // Reset password state
   const [resetPwOpen, setResetPwOpen] = useState(false);
@@ -207,6 +213,23 @@ export default function UsersManagement() {
     fetchUsers();
   };
 
+  const handleChangeOwner = async () => {
+    if (!editOwnerUser) return;
+    setEditingOwner(true);
+    const { data, error } = await supabase.functions.invoke("update-user", {
+      body: { user_id: editOwnerUser.id, action: "change_owner", new_owner_id: editOwnerValue === "none" ? null : editOwnerValue },
+    });
+    setEditingOwner(false);
+    if (error || data?.error) {
+      toast({ title: "Gagal mengubah owner", description: error?.message || data?.error, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Owner Diperbarui", description: "Owner user telah berhasil diubah.", variant: "success" as any });
+    setEditOwnerOpen(false);
+    setEditOwnerUser(null);
+    fetchUsers();
+  };
+
   const handleResetPassword = async () => {
     if (!resetPwUser) return;
     if (resetPwValue.length < 6) {
@@ -257,95 +280,92 @@ export default function UsersManagement() {
     return false;
   };
 
+  const canEditOwner = (target: UserWithRole) => {
+    if (!user || target.id === user.id || target.role === "super_admin" || target.role === "owner") return false;
+    return role === "super_admin";
+  };
+
   const canResetPassword = (target: UserWithRole) => {
     if (!user || target.id === user.id || target.role === "super_admin") return false;
     if (role === "super_admin") return true;
-    if (role === "owner") return target.owner_id === user.id && target.role !== "owner";
+    if (role === "owner") return target.owner_id === user.id;
     return false;
   };
 
-  const canDeleteUser = (target: UserWithRole) => {
+  const canDelete = (target: UserWithRole) => {
     if (!user || target.id === user.id || target.role === "super_admin") return false;
     if (role === "super_admin") return true;
-    if (role === "owner") return target.role !== "owner" && target.owner_id === user.id;
+    if (role === "owner") return target.owner_id === user.id;
     return false;
   };
 
-  const roleBadgeVariant = (value: AppRole | null) => {
-    switch (value) {
-      case "super_admin": return "default";
-      case "owner": return "default";
-      case "admin": case "admin_input": return "secondary";
-      default: return "outline";
-    }
+  const roleBadgeVariant = (r: AppRole | null) => {
+    if (r === "super_admin") return "destructive";
+    if (r === "owner") return "default";
+    return "secondary";
   };
 
-  if (!canAccessPage) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Hanya Super Admin / Owner yang bisa mengakses halaman ini.</p>
-      </div>
-    );
-  }
+  if (!canAccessPage) return <div className="p-8 text-center">Akses Ditolak</div>;
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Kelola User</h1>
-        {creatableRoles.length > 0 && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> Buat User</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Buat User Baru</DialogTitle>
-                <DialogDescription>
-                  {role === "super_admin" ? "Super admin bisa membuat owner dan user tenant." : "Owner bisa membuat user untuk timnya sendiri."}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreate} className="space-y-4">
+    <div className="container mx-auto py-8 space-y-8">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Kelola User</h1>
+          <p className="text-muted-foreground">Manajemen akun dan wewenang pengguna sistem.</p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="h-4 w-4 mr-2" /> Tambah User</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Tambah User Baru</DialogTitle>
+              <DialogDescription>Buat akun baru untuk anggota tim Anda.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreate} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nama Lengkap</Label>
+                <Input id="name" value={newName} onChange={(e) => setNewName(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {canSelectOwner && (
                 <div className="space-y-2">
-                  <Label>Nama Lengkap</Label>
-                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required maxLength={100} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required maxLength={255} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Password</Label>
-                  <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Role</Label>
-                  <Select value={newRole} onValueChange={(value) => setNewRole(value as AppRole)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Label>Owner</Label>
+                  <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
+                    <SelectTrigger><SelectValue placeholder="Pilih Owner" /></SelectTrigger>
                     <SelectContent>
-                      {roleOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      {owners.map((o) => (
+                        <SelectItem key={o.id} value={o.id}>{o.full_name || o.email}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                {canSelectOwner && (
-                  <div className="space-y-2">
-                    <Label>Owner</Label>
-                    <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
-                      <SelectTrigger><SelectValue placeholder="Pilih owner" /></SelectTrigger>
-                      <SelectContent>
-                        {owners.map((ownerItem) => (
-                          <SelectItem key={ownerItem.id} value={ownerItem.id}>{ownerItem.full_name || ownerItem.email || ownerItem.id}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <Button type="submit" className="w-full" disabled={creating}>{creating ? "Membuat..." : "Buat User"}</Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
+              )}
+              <Button type="submit" className="w-full" disabled={creating}>
+                {creating ? "Memproses..." : "Buat Akun"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
@@ -357,7 +377,7 @@ export default function UsersManagement() {
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 {role === "super_admin" && <TableHead>Owner</TableHead>}
-                <TableHead className="w-32 text-right">Aksi</TableHead>
+                <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -373,16 +393,30 @@ export default function UsersManagement() {
                       <div className="flex items-center justify-end gap-1">
                         {canEditRole(u) && (
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Ubah Role"
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
                               setEditRoleUser(u);
                               setEditRoleValue(u.role || "admin");
                               setEditRoleOpen(true);
                             }}
                           >
-                            <UserCog className="h-4 w-4 text-primary" />
+                            <UserCog className="h-4 w-4 mr-1" />
+                            Role
+                          </Button>
+                        )}
+                        {canEditOwner(u) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditOwnerUser(u);
+                              setEditOwnerValue(u.owner_id || "none");
+                              setEditOwnerOpen(true);
+                            }}
+                          >
+                            <UserCog className="h-4 w-4 mr-1" />
+                            Owner
                           </Button>
                         )}
                         {canResetPassword(u) && (
@@ -417,19 +451,23 @@ export default function UsersManagement() {
                             <Calculator className="h-4 w-4 text-blue-600" />
                           </Button>
                         )}
-                        {canDeleteUser(u) && (
+                        {canDelete(u) && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" title="Hapus User"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              <Button variant="ghost" size="icon" title="Hapus User">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Hapus User</AlertDialogTitle>
-                                <AlertDialogDescription>Yakin ingin menghapus {u.full_name || u.email}? Tindakan ini tidak bisa dibatalkan.</AlertDialogDescription>
+                                <AlertDialogTitle>Hapus User?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tindakan ini tidak dapat dibatalkan. Akun {u.full_name} akan dihapus permanen.
+                                </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Batal</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(u.id)}>Hapus</AlertDialogAction>
+                                <AlertDialogAction onClick={() => handleDelete(u.id)} className="bg-destructive text-destructive-foreground">Hapus</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
@@ -439,11 +477,6 @@ export default function UsersManagement() {
                   </TableRow>
                 );
               })}
-              {users.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={role === "super_admin" ? 5 : 4} className="py-8 text-center text-muted-foreground">Belum ada user</TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -453,31 +486,60 @@ export default function UsersManagement() {
       <Dialog open={editRoleOpen} onOpenChange={setEditRoleOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ubah Role</DialogTitle>
-            <DialogDescription>
-              Ubah role untuk {editRoleUser?.full_name || editRoleUser?.email}
-            </DialogDescription>
+            <DialogTitle>Ubah Role User</DialogTitle>
+            <DialogDescription>Pilih wewenang baru untuk user {editRoleUser?.full_name || editRoleUser?.email}.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Role Saat Ini</Label>
-              <Badge variant={roleBadgeVariant(editRoleUser?.role ?? null)}>
-                {editRoleUser?.role ? ROLE_LABELS[editRoleUser.role] : "No role"}
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              <Label>Role Baru</Label>
+              <Label>Pilih Role</Label>
               <Select value={editRoleValue} onValueChange={(v) => setEditRoleValue(v as AppRole)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {creatableRoles.map((r) => (
-                    <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                  {roleOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleChangeRole} className="w-full" disabled={editingRole}>
+            <Button className="w-full" onClick={handleChangeRole} disabled={editingRole}>
               {editingRole ? "Menyimpan..." : "Simpan Perubahan"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Owner Dialog */}
+      <Dialog open={editOwnerOpen} onOpenChange={setEditOwnerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ubah Owner User</DialogTitle>
+            <DialogDescription>
+              Pilih owner baru untuk user {editOwnerUser?.full_name || editOwnerUser?.email}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Pilih Owner</Label>
+              <Select value={editOwnerValue} onValueChange={setEditOwnerValue}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih Owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Tanpa Owner</SelectItem>
+                  {owners.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.full_name || o.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              className="w-full" 
+              onClick={handleChangeOwner}
+              disabled={editingOwner}
+            >
+              {editingOwner ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
           </div>
         </DialogContent>
@@ -488,22 +550,14 @@ export default function UsersManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reset Password</DialogTitle>
-            <DialogDescription>
-              Reset password untuk {resetPwUser?.full_name || resetPwUser?.email}
-            </DialogDescription>
+            <DialogDescription>Masukkan kata sandi baru untuk {resetPwUser?.full_name || resetPwUser?.email}.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Password Baru</Label>
-              <Input
-                type="password"
-                value={resetPwValue}
-                onChange={(e) => setResetPwValue(e.target.value)}
-                minLength={6}
-                placeholder="Minimal 6 karakter"
-              />
+              <Label htmlFor="new-pw">Password Baru</Label>
+              <Input id="new-pw" type="password" value={resetPwValue} onChange={(e) => setResetPwValue(e.target.value)} placeholder="Minimal 6 karakter" />
             </div>
-            <Button onClick={handleResetPassword} className="w-full" disabled={resettingPw || resetPwValue.length < 6}>
+            <Button className="w-full" onClick={handleResetPassword} disabled={resettingPw}>
               {resettingPw ? "Mereset..." : "Reset Password"}
             </Button>
           </div>
@@ -515,47 +569,48 @@ export default function UsersManagement() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Pengaturan Komisi & Gaji</DialogTitle>
-            <DialogDescription>
-              Atur skema pembayaran untuk {commUser?.full_name || commUser?.email}
-            </DialogDescription>
+            <DialogDescription>Atur skema pembayaran untuk {commUser?.full_name || commUser?.email}.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Jenis Komisi Utama</Label>
-              <Select value={commType} onValueChange={(v) => setCommType(v as any)}>
+              <Label>Tipe Pembayaran</Label>
+              <Select value={commType} onValueChange={(v: any) => setCommType(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="per_certificate">Komisi Per Sertifikat</SelectItem>
-                  <SelectItem value="monthly_salary">Gaji Per Bulan</SelectItem>
+                  <SelectItem value="per_certificate">Komisi per Sertifikat</SelectItem>
+                  <SelectItem value="monthly_salary">Gaji Bulanan + Bonus Target</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {commType === "monthly_salary" && (
-              <div className="space-y-2">
-                <Label>Gaji Pokok (Rp)</Label>
-                <Input type="number" value={commSalary} onChange={(e) => setCommSalary(Number(e.target.value))} />
+            {commType === "monthly_salary" ? (
+              <>
+                <div className="space-y-2">
+                  <Label>Gaji Pokok (Rp)</Label>
+                  <Input type="number" value={commSalary} onChange={(e) => setCommSalary(Number(e.target.value))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Uang Transport / Hari (Rp)</Label>
+                  <Input type="number" value={commTransport} onChange={(e) => setCommTransport(Number(e.target.value))} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Target (KTP)</Label>
+                    <Input type="number" value={commTarget} onChange={(e) => setCommTarget(Number(e.target.value))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Bonus per KTP {">"} Target</Label>
+                    <Input type="number" value={commOverRate} onChange={(e) => setCommOverRate(Number(e.target.value))} />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="p-4 bg-muted rounded-lg text-sm">
+                User akan dibayar berdasarkan komisi per sertifikat yang diatur di pengaturan aplikasi.
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label>Uang Transport (Rp)</Label>
-              <Input type="number" value={commTransport} onChange={(e) => setCommTransport(Number(e.target.value))} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Target (KTP)</Label>
-                <Input type="number" value={commTarget} onChange={(e) => setCommTarget(Number(e.target.value))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Bonus per KTP (Rp)</Label>
-                <Input type="number" value={commOverRate} onChange={(e) => setCommOverRate(Number(e.target.value))} />
-                <p className="text-[10px] text-muted-foreground italic">Diberikan jika melebihi target</p>
-              </div>
-            </div>
-
-            <Button onClick={handleSaveCommission} className="w-full" disabled={savingComm}>
+            <Button className="w-full" onClick={handleSaveCommission} disabled={savingComm}>
               {savingComm ? "Menyimpan..." : "Simpan Pengaturan"}
             </Button>
           </div>
