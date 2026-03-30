@@ -38,7 +38,6 @@ const SUPER_NAV = [
   { label: "Komisi", icon: Wallet, path: "/komisi" },
   { label: "Dashboard Komisi", icon: Wallet, path: "/commission-dashboard" },
   { label: "Penagihan", icon: CreditCard, path: "/billing-management" },
-  { label: "Metode Pembayaran", icon: CreditCard, path: "/payment-methods" },
   { label: "Pengaturan", icon: Settings, path: "/settings" },
 ];
 
@@ -48,9 +47,8 @@ const OWNER_NAV = [
   { label: "Group Halal", icon: FolderOpen, path: "/groups" },
   { label: "Share Link", icon: Link2, path: "/share" },
   { label: "Komisi", icon: Wallet, path: "/komisi" },
-  { label: "Pengaturan", icon: Settings, path: "/settings" },
   { label: "Paket & Billing", icon: CreditCard, path: "/billing" },
-  { label: "Metode Pembayaran", icon: CreditCard, path: "/owner-payment-methods" },
+  { label: "Pengaturan", icon: Settings, path: "/settings" },
 ];
 
 const NAV_ITEMS = {
@@ -84,14 +82,14 @@ const NAV_ITEMS = {
 };
 
 // Function to get primary nav items (max 4 items for mobile)
-const getPrimaryNavItems = (items: typeof SUPER_NAV) => {
+const getPrimaryNavItems = (items: any[]) => {
   const primaryOrder = ["/dashboard", "/groups", "/share", "/komisi"];
   const primary = items.filter(item => primaryOrder.includes(item.path));
   return primary.slice(0, 4);
 };
 
 // Function to get secondary nav items (overflow items)
-const getSecondaryNavItems = (items: typeof SUPER_NAV) => {
+const getSecondaryNavItems = (items: any[]) => {
   const primaryOrder = ["/dashboard", "/groups", "/share", "/komisi"];
   return items.filter(item => !primaryOrder.includes(item.path));
 };
@@ -160,7 +158,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             ) : (
               <Shield className="h-5 w-5 text-primary" />
             )}
-            <span className="text-sm font-bold tracking-tight">{appName}</span>
+            <span className="text-sm font-bold tracking-tight text-foreground">{appName}</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => navigate("/profile")} className="text-xs text-muted-foreground hover:text-foreground transition-colors">

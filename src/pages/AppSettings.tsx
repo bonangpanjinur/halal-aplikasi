@@ -8,11 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Save, Palette, Type, Image as ImageIcon, ShieldCheck, Wallet, ClipboardCheck, Building2, Edit2 } from "lucide-react";
+import { Loader2, Save, Palette, Type, Image as ImageIcon, ShieldCheck, Wallet, ClipboardCheck, Building2, Edit2, CreditCard, CheckCircle2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAllFieldAccess } from "@/hooks/useFieldAccess";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const COLOR_PRESETS = [
   { label: "Biru Profesional", value: "217 91% 50%" },
@@ -48,16 +50,6 @@ const FIELDS = [
   { key: "sertifikat", label: "Sertifikat Halal" },
 ];
 
-const STATUS_OPTIONS = [
-  { key: "status:belum_lengkap", label: "→ Belum Lengkap" },
-  { key: "status:siap_input", label: "→ Siap Input" },
-  { key: "status:ktp_terdaftar_nib", label: "→ KTP Terdaftar NIB" },
-  { key: "status:revisi", label: "→ Revisi" },
-  { key: "status:selesai_revisi", label: "→ Selesai Revisi" },
-  { key: "status:pengajuan", label: "→ Pengajuan" },
-  { key: "status:sertifikat_selesai", label: "→ Sertifikat Selesai" },
-];
-
 interface OwnerProfile {
   id: string;
   full_name: string;
@@ -65,10 +57,29 @@ interface OwnerProfile {
   platform_fee_per_entry: number;
 }
 
+interface PaymentMethod {
+  id: string;
+  name: string;
+  description: string | null;
+  account_name: string | null;
+  account_number: string | null;
+  bank_code: string | null;
+  is_active: boolean;
+}
+
+interface OwnerPaymentMethod {
+  id: string;
+  owner_id: string;
+  payment_method_id: string;
+  is_preferred: boolean;
+  payment_methods?: PaymentMethod;
+}
+
 export default function AppSettings() {
   const { role, user } = useAuth();
   const isSuperAdmin = role === "super_admin";
   const isOwner = role === "owner";
+  
   const [appName, setAppName] = useState("HalalTrack");
   const [primaryColor, setPrimaryColor] = useState("217 91% 50%");
   const [logoUrl, setLogoUrl] = useState("");
@@ -93,6 +104,12 @@ export default function AppSettings() {
   const [editingOwner, setEditingOwner] = useState<OwnerProfile | null>(null);
   const [editFee, setEditFee] = useState(0);
   const [savingFee, setSavingFee] = useState(false);
+
+  // Payment Methods State
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [ownerMethods, setOwnerMethods] = useState<OwnerPaymentMethod[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
 
   const { allAccess, loading: accessLoading, refetch: refetchAccess } = useAllFieldAccess();
   const [localAccess, setLocalAccess] = useState<Record<string, Record<string, { can_view: boolean; can_edit: boolean }>>>({});
@@ -161,9 +178,33 @@ export default function AppSettings() {
     setLoadingOwners(false);
   };
 
+  const fetchPaymentMethods = async () => {
+    if (!isOwner || !user) return;
+    setLoadingPayments(true);
+    try {
+      const { data: methods } = await (supabase
+        .from("payment_methods" as any)
+        .select("*")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true }) as any);
+      setPaymentMethods(methods || []);
+
+      const { data: ownerMethodsData } = await (supabase
+        .from("owner_payment_methods" as any)
+        .select("*, payment_methods(*)")
+        .eq("owner_id", user.id) as any);
+      setOwnerMethods(ownerMethodsData || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
+
   useEffect(() => {
     if (isSuperAdmin) fetchOwners();
-  }, [isSuperAdmin]);
+    if (isOwner) fetchPaymentMethods();
+  }, [isSuperAdmin, isOwner, user]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--primary", primaryColor);
@@ -258,59 +299,136 @@ export default function AppSettings() {
     }
   };
 
+  const handleTogglePaymentMethod = async (methodId: string, isSelected: boolean) => {
+    if (!user) return;
+    setSavingPayment(true);
+    try {
+      if (isSelected) {
+        await (supabase.from("owner_payment_methods" as any).delete().eq("owner_id", user.id).eq("payment_method_id", methodId) as any);
+        toast({ title: "Metode pembayaran dihapus" });
+      } else {
+        await (supabase.from("owner_payment_methods" as any).insert([{ owner_id: user.id, payment_method_id: methodId, is_preferred: ownerMethods.length === 0 }]) as any);
+        toast({ title: "Metode pembayaran ditambahkan" });
+      }
+      fetchPaymentMethods();
+    } catch (e) {
+      toast({ title: "Gagal memperbarui", variant: "destructive" });
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const handleSetPreferredPayment = async (ownerMethodId: string) => {
+    if (!user) return;
+    setSavingPayment(true);
+    try {
+      await (supabase.from("owner_payment_methods" as any).update({ is_preferred: false }).eq("owner_id", user.id) as any);
+      await (supabase.from("owner_payment_methods" as any).update({ is_preferred: true }).eq("id", ownerMethodId) as any);
+      toast({ title: "Metode utama diperbarui" });
+      fetchPaymentMethods();
+    } catch (e) {
+      toast({ title: "Gagal memperbarui", variant: "destructive" });
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
   if (role !== "super_admin" && role !== "owner") {
     return <div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Hanya Super Admin / Owner yang bisa mengakses halaman ini.</p></div>;
   }
 
+  const selectedPaymentIds = new Set(ownerMethods.map(m => m.payment_method_id));
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">Pengaturan</h1>
-      <Tabs defaultValue={isOwner ? "komisi" : "tampilan"}>
-        <TabsList className="w-full flex-wrap">
-          {!isOwner && <TabsTrigger value="tampilan" className="flex-1 gap-2"><Palette className="h-4 w-4" /> Tampilan</TabsTrigger>}
-          {!isOwner && <TabsTrigger value="akses" className="flex-1 gap-2"><ShieldCheck className="h-4 w-4" /> Hak Akses</TabsTrigger>}
-          {!isOwner && <TabsTrigger value="siap_input" className="flex-1 gap-2"><ClipboardCheck className="h-4 w-4" /> Siap Input</TabsTrigger>}
-          <TabsTrigger value="komisi" className="flex-1 gap-2"><Wallet className="h-4 w-4" /> Komisi</TabsTrigger>
-          {isSuperAdmin && <TabsTrigger value="tarif_platform" className="flex-1 gap-2"><Building2 className="h-4 w-4" /> Tarif Platform</TabsTrigger>}
+    <div className="mx-auto max-w-4xl space-y-8 pb-10">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Pengaturan</h1>
+          <p className="text-muted-foreground mt-1">Kelola konfigurasi aplikasi, hak akses, dan tarif platform.</p>
+        </div>
+      </div>
+
+      <Tabs defaultValue={isOwner ? "komisi" : "tampilan"} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto p-1 bg-muted/50">
+          {!isOwner && <TabsTrigger value="tampilan" className="gap-2 py-2.5"><Palette className="h-4 w-4" /> Tampilan</TabsTrigger>}
+          {!isOwner && <TabsTrigger value="akses" className="gap-2 py-2.5"><ShieldCheck className="h-4 w-4" /> Hak Akses</TabsTrigger>}
+          {!isOwner && <TabsTrigger value="siap_input" className="gap-2 py-2.5"><ClipboardCheck className="h-4 w-4" /> Siap Input</TabsTrigger>}
+          <TabsTrigger value="komisi" className="gap-2 py-2.5"><Wallet className="h-4 w-4" /> Komisi</TabsTrigger>
+          {isSuperAdmin && <TabsTrigger value="tarif_platform" className="gap-2 py-2.5"><Building2 className="h-4 w-4" /> Tarif Platform</TabsTrigger>}
+          {isOwner && <TabsTrigger value="pembayaran" className="gap-2 py-2.5"><CreditCard className="h-4 w-4" /> Pembayaran</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="tampilan" className="space-y-6 mt-4">
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Type className="h-5 w-5" /> Nama Aplikasi</CardTitle></CardHeader>
-            <CardContent><Input value={appName} onChange={(e) => setAppName(e.target.value)} /></CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Palette className="h-5 w-5" /> Warna Utama</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+        {/* Tampilan Tab */}
+        <TabsContent value="tampilan" className="space-y-6 outline-none">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="border-none shadow-md">
+              <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Type className="h-5 w-5 text-primary" /> Nama Aplikasi</CardTitle></CardHeader>
+              <CardContent><Input value={appName} onChange={(e) => setAppName(e.target.value)} className="h-11" /></CardContent>
+            </Card>
+            <Card className="border-none shadow-md">
+              <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><ImageIcon className="h-5 w-5 text-primary" /> Logo Aplikasi</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  {logoUrl && <img src={logoUrl} alt="Logo" className="h-12 w-12 rounded-lg object-contain border p-1" />}
+                  <Input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading} className="cursor-pointer" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <Card className="border-none shadow-md">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Palette className="h-5 w-5 text-primary" /> Warna Tema Utama</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
                 {COLOR_PRESETS.map((p) => (
-                  <button key={p.value} onClick={() => setPrimaryColor(p.value)} className={`flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 ${primaryColor === p.value ? "border-primary" : "border-transparent"}`}>
-                    <div className="h-8 w-8 rounded-full" style={{ backgroundColor: `hsl(${p.value})` }} />
-                    <span className="text-[10px]">{p.label}</span>
+                  <button 
+                    key={p.value} 
+                    onClick={() => setPrimaryColor(p.value)} 
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all hover:bg-accent",
+                      primaryColor === p.value ? "border-primary bg-primary/5" : "border-transparent"
+                    )}
+                  >
+                    <div className="h-10 w-10 rounded-full shadow-inner" style={{ backgroundColor: `hsl(${p.value})` }} />
+                    <span className="text-xs font-medium">{p.label}</span>
                   </button>
                 ))}
               </div>
             </CardContent>
           </Card>
-          <Button onClick={handleSave} disabled={saving} className="w-full"><Save className="mr-2 h-4 w-4" /> Simpan Tampilan</Button>
+          <Button onClick={handleSave} disabled={saving} className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20">
+            {saving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+            Simpan Perubahan Tampilan
+          </Button>
         </TabsContent>
 
-        <TabsContent value="akses" className="space-y-6 mt-4">
-          <Card>
-            <CardHeader><CardTitle>Hak Akses Field</CardTitle></CardHeader>
+        {/* Hak Akses Tab */}
+        <TabsContent value="akses" className="space-y-6 outline-none">
+          <Card className="border-none shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> Konfigurasi Hak Akses Field</CardTitle>
+              <CardDescription>Atur field mana saja yang bisa dilihat dan diedit oleh setiap role.</CardDescription>
+            </CardHeader>
             <CardContent>
-              {accessLoading ? <Loader2 className="animate-spin mx-auto" /> : (
-                <div className="space-y-6">
+              {accessLoading ? <div className="py-20 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : (
+                <div className="space-y-8">
                   {ALL_ROLES.map(r => (
-                    <div key={r.key} className="space-y-2">
-                      <h3 className="font-bold border-b pb-1">{r.label}</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div key={r.key} className="space-y-4">
+                      <div className="flex items-center gap-2 border-b pb-2">
+                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-sm px-3">{r.label}</Badge>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {FIELDS.map(f => (
-                          <div key={f.key} className="flex items-center justify-between p-2 border rounded">
-                            <span className="text-sm">{f.label}</span>
-                            <div className="flex gap-2">
-                              <Switch checked={localAccess[r.key]?.[f.key]?.can_view} onCheckedChange={() => toggleAccess(r.key, f.key, "can_view")} />
-                              <Switch checked={localAccess[r.key]?.[f.key]?.can_edit} onCheckedChange={() => toggleAccess(r.key, f.key, "can_edit")} />
+                          <div key={f.key} className="flex items-center justify-between p-3 border rounded-xl bg-card hover:bg-accent/30 transition-colors">
+                            <span className="text-sm font-medium">{f.label}</span>
+                            <div className="flex items-center gap-4">
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground uppercase font-bold">Lihat</span>
+                                <Switch checked={localAccess[r.key]?.[f.key]?.can_view} onCheckedChange={() => toggleAccess(r.key, f.key, "can_view")} />
+                              </div>
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground uppercase font-bold">Edit</span>
+                                <Switch checked={localAccess[r.key]?.[f.key]?.can_edit} onCheckedChange={() => toggleAccess(r.key, f.key, "can_edit")} />
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -321,70 +439,98 @@ export default function AppSettings() {
               )}
             </CardContent>
           </Card>
-          <Button onClick={handleSaveAccess} disabled={savingAccess} className="w-full"><Save className="mr-2 h-4 w-4" /> Simpan Hak Akses</Button>
+          <Button onClick={handleSaveAccess} disabled={savingAccess} className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20">
+            {savingAccess ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+            Simpan Konfigurasi Hak Akses
+          </Button>
         </TabsContent>
 
-        <TabsContent value="siap_input" className="space-y-6 mt-4">
-          <Card>
-            <CardHeader><CardTitle>Syarat Siap Input</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {/* Siap Input Tab */}
+        <TabsContent value="siap_input" className="space-y-6 outline-none">
+          <Card className="border-none shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-primary" /> Syarat Status Siap Input</CardTitle>
+              <CardDescription>Pilih field mana saja yang wajib diisi agar status otomatis berubah menjadi "Siap Input".</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {FIELDS.map(f => (
-                <div key={f.key} className="flex items-center gap-2 p-2 border rounded">
-                  <Checkbox checked={siapInputFields.includes(f.key)} onCheckedChange={(c) => setSiapInputFields(prev => c ? [...prev, f.key] : prev.filter(k => k !== f.key))} />
-                  <span className="text-sm">{f.label}</span>
+                <div key={f.key} className={cn(
+                  "flex items-center gap-3 p-4 border rounded-xl transition-all cursor-pointer",
+                  siapInputFields.includes(f.key) ? "border-primary bg-primary/5" : "hover:bg-accent"
+                )} onClick={() => setSiapInputFields(prev => siapInputFields.includes(f.key) ? prev.filter(k => k !== f.key) : [...prev, f.key])}>
+                  <Checkbox checked={siapInputFields.includes(f.key)} />
+                  <span className="text-sm font-medium">{f.label}</span>
                 </div>
               ))}
             </CardContent>
           </Card>
-          <Button onClick={async () => { setSavingSiapInput(true); await supabase.from("app_settings").upsert({ key: "siap_input_required_fields", value: JSON.stringify(siapInputFields) }, { onConflict: "key" }); setSavingSiapInput(false); toast({ title: "Berhasil" }); }} disabled={savingSiapInput} className="w-full"><Save className="mr-2 h-4 w-4" /> Simpan</Button>
+          <Button onClick={async () => { setSavingSiapInput(true); await supabase.from("app_settings").upsert({ key: "siap_input_required_fields", value: JSON.stringify(siapInputFields) }, { onConflict: "key" }); setSavingSiapInput(false); toast({ title: "Berhasil disimpan" }); }} disabled={savingSiapInput} className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20">
+            {savingSiapInput ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+            Simpan Syarat Siap Input
+          </Button>
         </TabsContent>
 
-        <TabsContent value="komisi" className="space-y-6 mt-4">
-          <Card>
-            <CardHeader><CardTitle>Tarif Komisi per Entry</CardTitle></CardHeader>
+        {/* Komisi Tab */}
+        <TabsContent value="komisi" className="space-y-6 outline-none">
+          <Card className="border-none shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" /> Tarif Komisi per Entry</CardTitle>
+              <CardDescription>Atur jumlah komisi yang didapatkan setiap role untuk satu data entri yang berhasil.</CardDescription>
+            </CardHeader>
             <CardContent className="space-y-4">
               {Object.entries(rates).map(([r, amount]) => (
-                <div key={r} className="flex items-center gap-4">
-                  <Label className="w-32 capitalize">{r.replace("_", " ")}</Label>
-                  <Input type="number" value={amount} onChange={(e) => setRates(prev => ({ ...prev, [r]: parseInt(e.target.value) || 0 }))} />
+                <div key={r} className="flex items-center gap-4 p-4 border rounded-xl bg-card">
+                  <Label className="w-40 capitalize font-semibold text-sm">{r.replace("_", " ")}</Label>
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">Rp</span>
+                    <Input type="number" value={amount} onChange={(e) => setRates(prev => ({ ...prev, [r]: parseInt(e.target.value) || 0 }))} className="pl-10 h-11" />
+                  </div>
                 </div>
               ))}
             </CardContent>
           </Card>
-          <Button onClick={handleSaveRates} disabled={savingRates} className="w-full"><Save className="mr-2 h-4 w-4" /> Simpan Tarif Komisi</Button>
+          <Button onClick={handleSaveRates} disabled={savingRates} className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20">
+            {savingRates ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+            Simpan Tarif Komisi
+          </Button>
         </TabsContent>
 
+        {/* Tarif Platform Tab (Super Admin Only) */}
         {isSuperAdmin && (
-          <TabsContent value="tarif_platform" className="space-y-6 mt-4">
-            <Card>
+          <TabsContent value="tarif_platform" className="space-y-6 outline-none">
+            <Card className="border-none shadow-md">
               <CardHeader>
-                <CardTitle>Tarif Platform per Owner</CardTitle>
-                <CardDescription>Atur biaya yang dikenakan ke owner untuk setiap data yang masuk</CardDescription>
+                <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-primary" /> Tarif Platform per Owner</CardTitle>
+                <CardDescription>Biaya yang dikenakan ke owner untuk setiap data yang masuk ke sistem.</CardDescription>
               </CardHeader>
-              <CardContent>
-                {loadingOwners ? <Loader2 className="animate-spin mx-auto" /> : (
+              <CardContent className="p-0">
+                {loadingOwners ? <div className="py-20 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : (
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-muted/50">
                       <TableRow>
-                        <TableHead>Owner</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Tarif / Entry</TableHead>
-                        <TableHead className="w-20">Aksi</TableHead>
+                        <TableHead className="font-bold">Owner</TableHead>
+                        <TableHead className="font-bold">Email</TableHead>
+                        <TableHead className="font-bold">Tarif / Entry</TableHead>
+                        <TableHead className="w-20 text-center font-bold">Aksi</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {owners.map(o => (
-                        <TableRow key={o.id}>
-                          <TableCell className="font-medium">{o.full_name}</TableCell>
-                          <TableCell>{o.email}</TableCell>
-                          <TableCell>Rp {o.platform_fee_per_entry?.toLocaleString() || 0}</TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="icon" onClick={() => { setEditingOwner(o); setEditFee(o.platform_fee_per_entry || 0); }}>
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {owners.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">Belum ada data owner</TableCell></TableRow>
+                      ) : (
+                        owners.map(o => (
+                          <TableRow key={o.id} className="hover:bg-muted/30 transition-colors">
+                            <TableCell className="font-semibold">{o.full_name}</TableCell>
+                            <TableCell className="text-muted-foreground">{o.email}</TableCell>
+                            <TableCell className="font-mono text-primary font-bold">Rp {o.platform_fee_per_entry?.toLocaleString() || 0}</TableCell>
+                            <TableCell className="text-center">
+                              <Button variant="ghost" size="icon" onClick={() => { setEditingOwner(o); setEditFee(o.platform_fee_per_entry || 0); }} className="hover:bg-primary/10 hover:text-primary">
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 )}
@@ -392,18 +538,102 @@ export default function AppSettings() {
             </Card>
           </TabsContent>
         )}
+
+        {/* Pembayaran Tab (Owner Only) */}
+        {isOwner && (
+          <TabsContent value="pembayaran" className="space-y-6 outline-none">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="border-none shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg"><CheckCircle2 className="h-5 w-5 text-emerald-500" /> Metode Pembayaran Saya</CardTitle>
+                  <CardDescription>Metode yang Anda gunakan untuk menerima pembayaran.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingPayments ? <div className="py-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div> : ownerMethods.length === 0 ? (
+                    <div className="py-10 text-center border-2 border-dashed rounded-xl">
+                      <p className="text-sm text-muted-foreground">Belum ada metode yang dipilih.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {ownerMethods.map(m => (
+                        <div key={m.id} className="p-4 border rounded-xl bg-card hover:shadow-sm transition-all">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm">{m.payment_methods?.name}</h3>
+                            {m.is_preferred && <Badge className="bg-emerald-500 hover:bg-emerald-600">Utama</Badge>}
+                          </div>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <p>No: <span className="font-mono text-foreground">{m.payment_methods?.account_number}</span></p>
+                            <p>A/N: <span className="font-medium text-foreground">{m.payment_methods?.account_name}</span></p>
+                          </div>
+                          <div className="flex gap-2 mt-4">
+                            {!m.is_preferred && <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleSetPreferredPayment(m.id)} disabled={savingPayment}>Set Utama</Button>}
+                            <Button variant="destructive" size="sm" className="h-8 text-[10px]" onClick={() => handleTogglePaymentMethod(m.payment_method_id, true)} disabled={savingPayment}>Hapus</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg"><CreditCard className="h-5 w-5 text-primary" /> Pilih Metode Tersedia</CardTitle>
+                  <CardDescription>Aktifkan metode pembayaran yang didukung.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingPayments ? <div className="py-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div> : (
+                    <div className="space-y-2">
+                      {paymentMethods.map(m => {
+                        const isSelected = selectedPaymentIds.has(m.id);
+                        return (
+                          <div 
+                            key={m.id} 
+                            className={cn(
+                              "flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all",
+                              isSelected ? "border-primary bg-primary/5" : "hover:bg-accent"
+                            )}
+                            onClick={() => handleTogglePaymentMethod(m.id, isSelected)}
+                          >
+                            <Checkbox checked={isSelected} disabled={savingPayment} />
+                            <div className="flex-1">
+                              <p className="text-sm font-bold">{m.name}</p>
+                              <p className="text-[10px] text-muted-foreground">{m.bank_code} {m.account_number ? `• ${m.account_number}` : ""}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
 
+      {/* Edit Platform Fee Dialog */}
       <Dialog open={!!editingOwner} onOpenChange={(o) => !o && setEditingOwner(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit Tarif Platform: {editingOwner?.full_name}</DialogTitle></DialogHeader>
-          <div className="py-4 space-y-2">
-            <Label>Tarif per Entry (Rp)</Label>
-            <Input type="number" value={editFee} onChange={(e) => setEditFee(parseInt(e.target.value) || 0)} />
+        <DialogContent className="sm:max-w-[425px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Edit Tarif Platform</DialogTitle>
+            <CardDescription>Update biaya platform untuk owner {editingOwner?.full_name}.</CardDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-bold">Tarif per Entry (Rp)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">Rp</span>
+                <Input type="number" value={editFee} onChange={(e) => setEditFee(parseInt(e.target.value) || 0)} className="pl-10 h-12 text-lg font-mono" />
+              </div>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingOwner(null)}>Batal</Button>
-            <Button onClick={handleSavePlatformFee} disabled={savingFee}>Simpan</Button>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setEditingOwner(null)} className="h-11 rounded-xl">Batal</Button>
+            <Button onClick={handleSavePlatformFee} disabled={savingFee} className="h-11 rounded-xl px-8">
+              {savingFee ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Simpan Tarif
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
