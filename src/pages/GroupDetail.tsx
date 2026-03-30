@@ -305,7 +305,9 @@ export default function GroupDetail() {
         toast({ title: "Anggota Ditambahkan", description: "User berhasil ditambahkan ke dalam grup.", variant: "success" as any });
         setAddMemberOpen(false);
         setSelectedUserId("");
-        fetchMembers();
+        setMemberSearchQuery("");
+        await fetchMembers();
+        await fetchAvailableUsers();
       }
     } catch (error) {
       toast({ 
