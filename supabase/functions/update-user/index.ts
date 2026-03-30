@@ -32,7 +32,9 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { user_id, action, new_role, new_password, new_owner_id } = await req.json();
+    const body = await req.json();
+    const { user_id, action, new_role, new_password, new_owner_id } = body;
+    console.log("Update user request:", { user_id, action, actorRole, callerId: caller.id });
 
     if (!user_id || user_id === caller.id) {
       return new Response(JSON.stringify({ error: "User tidak valid" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -132,8 +134,10 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Tidak bisa mengubah owner dari user ber-role owner" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      console.log("Changing owner for user:", user_id, "to:", new_owner_id);
       const { error } = await supabaseAdmin.from("profiles").update({ owner_id: new_owner_id || null }).eq("id", user_id);
       if (error) {
+        console.error("Error updating owner:", error);
         return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
