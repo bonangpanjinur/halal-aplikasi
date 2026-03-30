@@ -252,23 +252,33 @@ export default function GroupDetail() {
     }
   }, [groupId, role]);
 
+  // Role configuration: roles that can only have one member per group
+  const SINGLE_ROLE_PER_GROUP = ["owner", "lapangan", "nib", "admin_input", "admin"];
+
   const handleAddMember = async () => {
     if (!selectedUserId) return;
 
-    // Get the role of the user being added
-    const { data: userRoleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", selectedUserId)
-      .single();
+    try {
+      // Get the role of the user being added
+      const { data: userRoleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", selectedUserId)
+        .single();
 
-    const newUserRole = userRoleData?.role;
+      if (roleError) {
+        toast({ 
+          title: "Error", 
+          description: "Gagal mengambil data role user.", 
+          variant: "destructive" 
+        });
+        return;
+      }
 
-    if (newUserRole) {
-      // Define roles that are limited to 1 per group
-      const limitedRoles = ["owner", "lapangan", "nib", "admin_input", "admin"];
-      
-      if (limitedRoles.includes(newUserRole)) {
+      const newUserRole = userRoleData?.role;
+
+      // Check for duplicate role prevention
+      if (newUserRole && SINGLE_ROLE_PER_GROUP.includes(newUserRole)) {
         const existingRoleMember = members.find(m => m.role === newUserRole);
         if (existingRoleMember) {
           toast({ 
@@ -279,16 +289,23 @@ export default function GroupDetail() {
           return;
         }
       }
-    }
 
-    const { error } = await supabase.from("group_members").insert({ group_id: groupId, user_id: selectedUserId });
-    if (error) {
-      toast({ title: "Gagal", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Anggota Ditambahkan", description: "User berhasil ditambahkan ke dalam grup.", variant: "success" as any });
-      setAddMemberOpen(false);
-      setSelectedUserId("");
-      fetchMembers();
+      // Add member to group
+      const { error: insertError } = await supabase.from("group_members").insert({ group_id: groupId, user_id: selectedUserId });
+      if (insertError) {
+        toast({ title: "Gagal", description: insertError.message, variant: "destructive" });
+      } else {
+        toast({ title: "Anggota Ditambahkan", description: "User berhasil ditambahkan ke dalam grup.", variant: "success" as any });
+        setAddMemberOpen(false);
+        setSelectedUserId("");
+        fetchMembers();
+      }
+    } catch (error) {
+      toast({ 
+        title: "Error", 
+        description: "Terjadi kesalahan saat menambahkan anggota.", 
+        variant: "destructive" 
+      });
     }
   };
   const handleRemoveMember = async (memberId: string) => {
