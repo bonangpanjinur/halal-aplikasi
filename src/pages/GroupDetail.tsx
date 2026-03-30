@@ -251,19 +251,19 @@ export default function GroupDetail() {
     const newUserRole = userRoleData?.role;
 
     if (newUserRole) {
-      // Check if a user with this role already exists in the group
-      const existingRoleMember = members.find(m => m.role === newUserRole);
-      
       // Define roles that are limited to 1 per group
       const limitedRoles = ["owner", "lapangan", "nib", "admin_input", "admin"];
       
-      if (limitedRoles.includes(newUserRole) && existingRoleMember) {
-        toast({ 
-          title: "Batas Peran Tercapai", 
-          description: `Grup ini sudah memiliki 1 ${newUserRole.replace("_", " ")}. Setiap grup hanya boleh memiliki maksimal 1 orang per peran untuk menjaga ketertiban PIC.`, 
-          variant: "destructive" 
-        });
-        return;
+      if (limitedRoles.includes(newUserRole)) {
+        const existingRoleMember = members.find(m => m.role === newUserRole);
+        if (existingRoleMember) {
+          toast({ 
+            title: "Batas Peran Tercapai", 
+            description: `Grup ini sudah memiliki 1 ${newUserRole.replace("_", " ")}. Setiap grup hanya boleh memiliki maksimal 1 orang per peran untuk menjaga ketertiban PIC.`, 
+            variant: "destructive" 
+          });
+          return;
+        }
       }
     }
 
