@@ -20,8 +20,15 @@ import {
   ClipboardList,
   Bell,
   CreditCard,
+  MoreVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const SUPER_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -76,6 +83,19 @@ const NAV_ITEMS = {
   ],
 };
 
+// Function to get primary nav items (max 4 items for mobile)
+const getPrimaryNavItems = (items: typeof SUPER_NAV) => {
+  const primaryOrder = ["/dashboard", "/groups", "/share", "/komisi"];
+  const primary = items.filter(item => primaryOrder.includes(item.path));
+  return primary.slice(0, 4);
+};
+
+// Function to get secondary nav items (overflow items)
+const getSecondaryNavItems = (items: typeof SUPER_NAV) => {
+  const primaryOrder = ["/dashboard", "/groups", "/share", "/komisi"];
+  return items.filter(item => !primaryOrder.includes(item.path));
+};
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { role, signOut, user } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -101,6 +121,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }, []);
 
   const items = role ? NAV_ITEMS[role as keyof typeof NAV_ITEMS] ?? [] : [];
+  const primaryItems = getPrimaryNavItems(items);
+  const secondaryItems = getSecondaryNavItems(items);
 
   // Fetch unread notification count for UMKM
   useEffect(() => {
@@ -131,7 +153,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         {/* Top bar */}
-        <header className="flex items-center justify-between border-b px-4 py-3">
+        <header className="flex items-center justify-between border-b bg-background px-4 py-3 sticky top-0 z-40">
           <div className="flex items-center gap-2">
             {logoUrl ? (
               <img src={logoUrl} alt="Logo" className="h-5 w-5 rounded object-contain" />
@@ -169,25 +191,67 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Content - add padding bottom for sticky nav */}
-        <main className="flex-1 overflow-auto p-4 pb-20">{children}</main>
+        <main className="flex-1 overflow-auto p-4 pb-24">{children}</main>
 
-        {/* Sticky Bottom nav */}
-        <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t bg-background shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-          {items.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-2.5 text-xs transition-colors",
-                location.pathname === item.path
-                  ? "text-primary font-medium"
-                  : "text-muted-foreground"
-              )}
-            >
-              <item.icon className={cn("h-5 w-5", location.pathname === item.path && "scale-110")} />
-              <span className="truncate text-[10px]">{item.label}</span>
-            </button>
-          ))}
+        {/* Sticky Bottom nav - Improved Design */}
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.08)]">
+          <div className="flex items-center justify-between h-20">
+            {/* Primary navigation items */}
+            {primaryItems.map((item) => (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={cn(
+                  "flex flex-1 flex-col items-center justify-center h-20 gap-1.5 transition-all duration-200 hover:bg-accent/50",
+                  location.pathname === item.path
+                    ? "text-primary font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <item.icon 
+                  className={cn(
+                    "h-6 w-6 transition-transform duration-200",
+                    location.pathname === item.path && "scale-110"
+                  )} 
+                />
+                <span className="text-[11px] font-medium leading-tight">{item.label}</span>
+              </button>
+            ))}
+
+            {/* More menu for secondary items */}
+            {secondaryItems.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      "flex flex-1 flex-col items-center justify-center h-20 gap-1.5 transition-all duration-200 hover:bg-accent/50",
+                      secondaryItems.some(item => location.pathname === item.path)
+                        ? "text-primary font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <MoreVertical className="h-6 w-6" />
+                    <span className="text-[11px] font-medium">Lainnya</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 mb-2">
+                  {secondaryItems.map((item) => (
+                    <DropdownMenuItem
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className={cn(
+                        "cursor-pointer flex items-center gap-2",
+                        location.pathname === item.path && "bg-accent font-semibold"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </nav>
       </div>
     );
