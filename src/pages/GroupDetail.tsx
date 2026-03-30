@@ -238,7 +238,35 @@ export default function GroupDetail() {
   }, [groupId, role]);
 
   const handleAddMember = async () => {
-    if (!selectedUserId || !groupId) return;
+    if  const handleAddMember = async () => {
+    if (!selectedUserId) return;
+
+    // Get the role of the user being added
+    const { data: userRoleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", selectedUserId)
+      .single();
+
+    const newUserRole = userRoleData?.role;
+
+    if (newUserRole) {
+      // Check if a user with this role already exists in the group
+      const existingRoleMember = members.find(m => m.role === newUserRole);
+      
+      // Define roles that are limited to 1 per group
+      const limitedRoles = ["owner", "lapangan", "nib", "admin_input", "admin"];
+      
+      if (limitedRoles.includes(newUserRole) && existingRoleMember) {
+        toast({ 
+          title: "Batas Peran Tercapai", 
+          description: `Grup ini sudah memiliki 1 ${newUserRole.replace("_", " ")}. Setiap grup hanya boleh memiliki maksimal 1 orang per peran untuk menjaga ketertiban PIC.`, 
+          variant: "destructive" 
+        });
+        return;
+      }
+    }
+
     const { error } = await supabase.from("group_members").insert({ group_id: groupId, user_id: selectedUserId });
     if (error) {
       toast({ title: "Gagal", description: error.message, variant: "destructive" });
@@ -249,7 +277,6 @@ export default function GroupDetail() {
       fetchMembers();
     }
   };
-
   const handleRemoveMember = async (memberId: string) => {
     await supabase.from("group_members").delete().eq("id", memberId);
     fetchMembers();
