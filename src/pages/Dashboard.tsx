@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, FolderOpen, FileText, Link2, TrendingUp, Eye, Trophy, CalendarDays } from "lucide-react";
+import { Users, FolderOpen, FileText, Link2, TrendingUp, Eye, Trophy, CalendarDays, CheckCircle2, Clock, AlertCircle, LayoutDashboard } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFieldAccess } from "@/hooks/useFieldAccess";
@@ -15,9 +15,10 @@ import {
 } from "@/components/ui/chart";
 import {
   BarChart, Bar, XAxis, YAxis, PieChart, Pie, Cell,
-  ResponsiveContainer, LabelList, CartesianGrid,
+  ResponsiveContainer, LabelList, CartesianGrid, Tooltip, Legend
 } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
+import { cn } from "@/lib/utils";
 
 type DataEntry = Tables<"data_entries">;
 
@@ -36,71 +37,29 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  belum_lengkap: "hsl(0 84% 60%)",
-  siap_input: "hsl(45 93% 47%)",
-  lengkap: "hsl(120 60% 50%)",
-  ktp_terdaftar_nib: "hsl(30 90% 50%)",
-  terverifikasi: "hsl(142 71% 45%)",
-  nib_selesai: "hsl(200 80% 50%)",
-  ktp_terdaftar_sertifikat: "hsl(15 85% 50%)",
-  pengajuan: "hsl(270 60% 55%)",
-  sertifikat_selesai: "hsl(160 84% 39%)",
-  revisi: "hsl(0 84% 60%)",
-  selesai_revisi: "hsl(45 93% 47%)",
+  belum_lengkap: "#ef4444", // red-500
+  siap_input: "#f59e0b", // amber-500
+  lengkap: "#84cc16", // lime-500
+  ktp_terdaftar_nib: "#f97316", // orange-500
+  terverifikasi: "#22c55e", // green-500
+  nib_selesai: "#3b82f6", // blue-500
+  ktp_terdaftar_sertifikat: "#ea580c", // orange-600
+  pengajuan: "#a855f7", // purple-500
+  sertifikat_selesai: "#10b981", // emerald-500
+  revisi: "#dc2626", // red-600
+  selesai_revisi: "#d97706", // amber-600
 };
 
-const STATUS_BG: Record<string, string> = {
-  belum_lengkap: "bg-red-100 dark:bg-red-950",
-  siap_input: "bg-yellow-100 dark:bg-yellow-950",
-  lengkap: "bg-lime-100 dark:bg-lime-950",
-  ktp_terdaftar_nib: "bg-orange-100 dark:bg-orange-950",
-  terverifikasi: "bg-green-100 dark:bg-green-950",
-  nib_selesai: "bg-blue-100 dark:bg-blue-950",
-  ktp_terdaftar_sertifikat: "bg-orange-100 dark:bg-orange-950",
-  pengajuan: "bg-purple-100 dark:bg-purple-950",
-  sertifikat_selesai: "bg-emerald-100 dark:bg-emerald-950",
-  revisi: "bg-red-100 dark:bg-red-950",
-  selesai_revisi: "bg-yellow-100 dark:bg-yellow-950",
-};
-
-const STATUS_TEXT: Record<string, string> = {
-  belum_lengkap: "text-red-700 dark:text-red-400",
-  siap_input: "text-yellow-700 dark:text-yellow-400",
-  lengkap: "text-lime-700 dark:text-lime-400",
-  terverifikasi: "text-green-700 dark:text-green-400",
-  nib_selesai: "text-blue-700 dark:text-blue-400",
-  pengajuan: "text-purple-700 dark:text-purple-400",
-  sertifikat_selesai: "text-emerald-700 dark:text-emerald-400",
-  revisi: "text-red-700 dark:text-red-400",
-  selesai_revisi: "text-yellow-700 dark:text-yellow-400",
-};
-
-const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  belum_lengkap: "destructive",
-  siap_input: "secondary",
-  lengkap: "secondary",
-  terverifikasi: "default",
-  nib_selesai: "secondary",
-  pengajuan: "outline",
-  sertifikat_selesai: "default",
-  revisi: "destructive",
-  selesai_revisi: "secondary",
-};
-
-const pieChartConfig: ChartConfig = {
-  belum_lengkap: { label: "Belum Lengkap", color: STATUS_COLORS.belum_lengkap },
-  siap_input: { label: "Siap Input", color: STATUS_COLORS.siap_input },
-  lengkap: { label: "Lengkap", color: STATUS_COLORS.lengkap },
-  terverifikasi: { label: "Terverifikasi", color: STATUS_COLORS.terverifikasi },
-  nib_selesai: { label: "NIB Selesai", color: STATUS_COLORS.nib_selesai },
-  pengajuan: { label: "Pengajuan", color: STATUS_COLORS.pengajuan },
-  sertifikat_selesai: { label: "Sertifikat Selesai", color: STATUS_COLORS.sertifikat_selesai },
-};
-
-const statusBarConfig: ChartConfig = pieChartConfig;
-
-const barChartConfig: ChartConfig = {
-  count: { label: "Jumlah Entri", color: "hsl(var(--primary))" },
+const STATUS_BADGE_VARIANT: Record<string, string> = {
+  belum_lengkap: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+  siap_input: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
+  lengkap: "bg-lime-100 text-lime-700 border-lime-200 dark:bg-lime-900/30 dark:text-lime-400 dark:border-lime-800",
+  terverifikasi: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
+  nib_selesai: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
+  pengajuan: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800",
+  sertifikat_selesai: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800",
+  revisi: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+  selesai_revisi: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
 };
 
 type GroupStat = { name: string; count: number };
@@ -122,49 +81,41 @@ const FIELD_LABELS: Record<string, string> = {
   sertifikat: "Sertifikat",
 };
 
-const FIELD_TO_COLUMN: Record<string, string> = {
-  nama: "nama",
-  alamat: "alamat",
-  nomor_hp: "nomor_hp",
-  email_halal: "email_halal",
-  sandi_halal: "sandi_halal",
-  email_nib: "email_nib",
-  sandi_nib: "sandi_nib",
-  ktp: "ktp_url",
-  nib: "nib_url",
-  foto_produk: "foto_produk_url",
-  foto_verifikasi: "foto_verifikasi_url",
-  sertifikat: "sertifikat_url",
-};
-
 export default function Dashboard() {
   const { role, user } = useAuth();
-  const { fields, canView } = useFieldAccess();
-  const [stats, setStats] = useState({ groups: 0, entries: 0, users: 0, links: 0 });
+  const { fields } = useFieldAccess();
+  const [stats, setStats] = useState({ groups: 0, entries: 0, users: 0, links: 0, nib_selesai: 0, sertifikat_selesai: 0 });
   const [statusData, setStatusData] = useState<StatusStat[]>([]);
   const [groupData, setGroupData] = useState<GroupStat[]>([]);
   const [recentEntries, setRecentEntries] = useState<DataEntry[]>([]);
   const [adminStats, setAdminStats] = useState<AdminStat[]>([]);
   const [adminPeriod, setAdminPeriod] = useState("all");
+  const [loading, setLoading] = useState(true);
 
-  const visibleFields = fields.filter((f) => f.can_view);
+  const visibleFields = fields.filter((f) => f.can_view).slice(0, 4); // Limit fields for mobile view
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       const isSuperAdmin = role === "super_admin";
       const isOwner = role === "owner";
 
-      let entriesQuery = supabase.from("data_entries").select("id", { count: "exact", head: true });
+      // 1. Fetch Basic Stats
+      let entriesQuery = supabase.from("data_entries").select("id, status", { count: "exact" });
       if (!isSuperAdmin && !isOwner && user) entriesQuery = entriesQuery.eq("created_by", user.id);
+      
+      const { data: allEntries, count: entriesCount } = await entriesQuery;
+      
+      let nibCount = 0;
+      let sertifikatCount = 0;
+      if (allEntries) {
+        nibCount = allEntries.filter(e => e.status === "nib_selesai").length;
+        sertifikatCount = allEntries.filter(e => e.status === "sertifikat_selesai").length;
+      }
 
-      const [groupsRes, entriesRes] = await Promise.all([
-        supabase.from("groups").select("id", { count: "exact", head: true }),
-        entriesQuery,
-      ]);
-
+      const { count: groupsCount } = await supabase.from("groups").select("id", { count: "exact", head: true });
+      
       let usersCount = 0;
-      let linksCount = 0;
-
       if (isSuperAdmin) {
         const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true });
         usersCount = count ?? 0;
@@ -173,39 +124,35 @@ export default function Dashboard() {
         usersCount = count ?? 0;
       }
 
-      const { count: linkCount } = await supabase
+      const { count: linksCount } = await supabase
         .from("shared_links")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user?.id ?? "");
-      linksCount = linkCount ?? 0;
 
       setStats({
-        groups: groupsRes.count ?? 0,
-        entries: entriesRes.count ?? 0,
+        groups: groupsCount ?? 0,
+        entries: entriesCount ?? 0,
         users: usersCount,
-        links: linksCount,
+        links: linksCount ?? 0,
+        nib_selesai: nibCount,
+        sertifikat_selesai: sertifikatCount,
       });
-    };
 
-    const fetchChartData = async () => {
-      const isSuperAdmin = role === "super_admin";
-      const isOwner = role === "owner";
-      let statusQuery = supabase.from("data_entries").select("status");
-      if (!isSuperAdmin && !isOwner && user) statusQuery = statusQuery.eq("created_by", user.id);
-      const { data: entries } = await statusQuery;
-      if (entries) {
+      // 2. Status Chart Data
+      if (allEntries) {
         const counts: Record<string, number> = {};
-        entries.forEach((e) => { counts[e.status] = (counts[e.status] || 0) + 1; });
+        allEntries.forEach((e) => { counts[e.status] = (counts[e.status] || 0) + 1; });
         setStatusData(
           Object.entries(counts).map(([status, count]) => ({
             status,
             label: STATUS_LABELS[status] || status,
             count,
-            fill: STATUS_COLORS[status] || "hsl(var(--primary))",
+            fill: STATUS_COLORS[status] || "#94a3b8",
           }))
         );
       }
 
+      // 3. Group Chart Data
       let groupQuery = supabase.from("data_entries").select("group_id, groups(name)");
       if (!isSuperAdmin && !isOwner && user) groupQuery = groupQuery.eq("created_by", user.id);
       const { data: entryGroups } = await groupQuery;
@@ -213,32 +160,29 @@ export default function Dashboard() {
         const groupCounts: Record<string, { name: string; count: number }> = {};
         entryGroups.forEach((e: any) => {
           const gid = e.group_id;
-          if (!groupCounts[gid]) groupCounts[gid] = { name: e.groups?.name || "Unknown", count: 0 };
+          if (!groupCounts[gid]) groupCounts[gid] = { name: e.groups?.name || "Tanpa Group", count: 0 };
           groupCounts[gid].count++;
         });
-        setGroupData(Object.values(groupCounts).sort((a, b) => b.count - a.count).slice(0, 10));
+        setGroupData(Object.values(groupCounts).sort((a, b) => b.count - a.count).slice(0, 5));
       }
-    };
 
-    const fetchRecentEntries = async () => {
-      const isSuperAdmin = role === "super_admin";
-      const isOwner = role === "owner";
+      // 4. Recent Entries
       let recentQuery = supabase
         .from("data_entries")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(5);
       if (!isSuperAdmin && !isOwner && user) recentQuery = recentQuery.eq("created_by", user.id);
-      const { data } = await recentQuery;
-      setRecentEntries(data ?? []);
+      const { data: recent } = await recentQuery;
+      setRecentEntries(recent ?? []);
+
+      setLoading(false);
     };
 
-    fetchStats();
-    fetchChartData();
-    fetchRecentEntries();
+    fetchData();
   }, [role, user]);
 
-  // Admin performance stats for super_admin
+  // Admin performance stats
   useEffect(() => {
     if (role !== "super_admin") return;
     const fetchAdminStats = async () => {
@@ -263,202 +207,258 @@ export default function Dashboard() {
       const stats: AdminStat[] = userIds
         .map((uid) => ({ user_id: uid, name: profileMap.get(uid) || "Unknown", count: counts[uid] }))
         .sort((a, b) => b.count - a.count);
-      setAdminStats(stats);
+      setAdminStats(stats.slice(0, 5));
     };
     fetchAdminStats();
   }, [role, adminPeriod]);
 
-  const cards = [
-    { label: "Group Halal", value: stats.groups, icon: FolderOpen, show: true },
-    { label: "Data Entri", value: stats.entries, icon: FileText, show: true },
-    { label: "Total User", value: stats.users, icon: Users, show: role === "super_admin" || role === "owner" },
-    { label: "Link Aktif", value: stats.links, icon: Link2, show: true },
-  ];
-
-  const totalEntries = statusData.reduce((s, d) => s + d.count, 0);
-
-  const statusBarData = statusData.map((s) => ({
-    label: s.label,
-    count: s.count,
-    status: s.status,
-    persen: totalEntries > 0 ? Math.round((s.count / totalEntries) * 100) : 0,
-  }));
-
   const getCellValue = (entry: DataEntry, fieldName: string) => {
-    const col = FIELD_TO_COLUMN[fieldName];
-    if (!col) return "-";
-    const val = (entry as any)[col];
-    if (!val) return "-";
-    // For URL fields, show indicator
-    if (col.endsWith("_url")) {
-      return val ? "✓" : "-";
-    }
-    return val;
+    if (fieldName === "nama") return entry.nama;
+    if (fieldName === "alamat") return entry.alamat;
+    if (fieldName === "nomor_hp") return entry.nomor_hp;
+    if (fieldName === "email_halal") return entry.email_halal;
+    if (fieldName === "email_nib") return entry.email_nib;
+    return "-";
   };
 
-  return (
-    <div>
-      <h1 className="mb-6 text-2xl font-bold">
-        Dashboard {role && <span className="text-base font-normal text-muted-foreground capitalize">({role.replace("_", " ")})</span>}
-      </h1>
+  const StatCard = ({ title, value, icon: Icon, description, colorClass, trend }: any) => (
+    <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow duration-300">
+      <div className={cn("h-1.5 w-full", colorClass)} />
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
+            <h3 className="text-2xl font-bold tracking-tight">{value}</h3>
+            {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+          </div>
+          <div className={cn("p-3 rounded-xl bg-opacity-10", colorClass.replace("bg-", "bg-opacity-10 text-").replace("500", "600"))}>
+            <Icon className="h-6 w-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        {cards.filter(c => c.show).map((card) => (
-          <Card key={card.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{card.label}</CardTitle>
-              <card.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{card.value}</p>
-            </CardContent>
-          </Card>
-        ))}
+  if (loading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground font-medium">Memuat Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 pb-10">
+      {/* Welcome Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Selamat datang kembali, <span className="font-semibold text-foreground">{user?.email?.split("@")[0]}</span>. Berikut ringkasan aktivitas Anda.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 bg-background border rounded-lg p-1.5 shadow-sm">
+          <Badge variant="outline" className="px-3 py-1 border-none bg-primary/5 text-primary font-semibold">
+            <CalendarDays className="mr-2 h-3.5 w-3.5" />
+            {new Date().toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}
+          </Badge>
+        </div>
       </div>
 
-      {/* Status Stats Cards */}
-      {totalEntries > 0 && (
-        <div className="grid gap-4 sm:grid-cols-3 mb-8">
-          {statusData.map((s) => (
-            <Card key={s.status} className={`border-0 ${STATUS_BG[s.status]}`}>
-              <CardContent className="pt-5 pb-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className={`text-xs font-medium mb-1 ${STATUS_TEXT[s.status]}`}>{s.label}</p>
-                    <p className={`text-3xl font-bold ${STATUS_TEXT[s.status]}`}>{s.count}</p>
-                    <p className={`text-xs mt-1 ${STATUS_TEXT[s.status]} opacity-70`}>
-                      {totalEntries > 0 ? Math.round((s.count / totalEntries) * 100) : 0}% dari total
-                    </p>
-                  </div>
-                  <div
-                    className="h-10 w-10 rounded-full flex items-center justify-center opacity-30"
-                    style={{ backgroundColor: s.fill }}
-                  />
-                </div>
-                <div className="mt-3 h-1.5 w-full rounded-full bg-black/10 dark:bg-white/10">
-                  <div
-                    className="h-1.5 rounded-full transition-all duration-700"
-                    style={{
-                      width: `${totalEntries > 0 ? (s.count / totalEntries) * 100 : 0}%`,
-                      backgroundColor: s.fill,
-                    }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {/* Main Stats Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard 
+          title="Total Entri" 
+          value={stats.entries} 
+          icon={FileText} 
+          description="Total data yang terdaftar"
+          colorClass="bg-blue-500"
+        />
+        <StatCard 
+          title="NIB Selesai" 
+          value={stats.nib_selesai} 
+          icon={CheckCircle2} 
+          description={`${Math.round((stats.nib_selesai / (stats.entries || 1)) * 100)}% dari total entri`}
+          colorClass="bg-emerald-500"
+        />
+        <StatCard 
+          title="Sertifikat Selesai" 
+          value={stats.sertifikat_selesai} 
+          icon={Trophy} 
+          description={`${Math.round((stats.sertifikat_selesai / (stats.entries || 1)) * 100)}% dari total entri`}
+          colorClass="bg-amber-500"
+        />
+        <StatCard 
+          title={role === "super_admin" ? "Total User" : "Share Link"} 
+          value={role === "super_admin" ? stats.users : stats.links} 
+          icon={role === "super_admin" ? Users : Link2} 
+          description={role === "super_admin" ? "User aktif di sistem" : "Link aktif yang dibagikan"}
+          colorClass="bg-purple-500"
+        />
+      </div>
 
-      {/* Charts Row */}
-      {totalEntries > 0 && (
-        <div className="grid gap-6 lg:grid-cols-2 mb-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Jumlah Entri per Status
+      <div className="grid gap-6 lg:grid-cols-7">
+        {/* Status Distribution Chart */}
+        <Card className="lg:col-span-4 border-none shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Distribusi Status Entri
               </CardTitle>
-              <CardDescription>Total {totalEntries} entri terdaftar</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {totalEntries === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">Belum ada data</p>
-              ) : (
-                <ChartContainer config={statusBarConfig} className="max-h-[260px]">
-                  <BarChart data={statusBarData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
-                    <CartesianGrid vertical={false} className="stroke-muted" />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                    <ChartTooltip content={<ChartTooltipContent />} formatter={(value) => [`${value} entri`, ""]} />
-                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                      {statusBarData.map((entry) => (
-                        <Cell key={entry.status} fill={STATUS_COLORS[entry.status]} />
-                      ))}
-                      <LabelList dataKey="count" position="top" style={{ fontSize: 13, fontWeight: 600, fill: "hsl(var(--foreground))" }} />
-                    </Bar>
-                  </BarChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Distribusi Status Entri</CardTitle>
-              <CardDescription>Proporsi setiap status dalam persentase</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {totalEntries === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">Belum ada data</p>
-              ) : (
-                <ChartContainer config={pieChartConfig} className="mx-auto aspect-square max-h-[250px]">
-                  <PieChart>
-                    <ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
-                    <Pie data={statusData} dataKey="count" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={95} strokeWidth={2}>
-                      {statusData.map((entry) => (
-                        <Cell key={entry.status} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ChartContainer>
-              )}
-              {totalEntries > 0 && (
-                <div className="flex flex-wrap justify-center gap-4 mt-2">
-                  {statusData.map((s) => (
-                    <div key={s.status} className="flex items-center gap-1.5 text-sm">
-                      <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: s.fill }} />
-                      <span className="text-muted-foreground">{s.label}</span>
-                      <span className="font-semibold">{Math.round((s.count / totalEntries) * 100)}%</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Group Bar Chart */}
-      {groupData.length > 0 && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-base">Jumlah Entri per Group</CardTitle>
-            <CardDescription>Top {groupData.length} group berdasarkan jumlah data</CardDescription>
+              <CardDescription>Proporsi setiap status dalam sistem</CardDescription>
+            </div>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={barChartConfig} className="max-h-[320px]">
-              <BarChart data={groupData} layout="vertical" margin={{ left: 10, right: 30 }}>
-                <CartesianGrid horizontal={false} className="stroke-muted" />
-                <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 6, 6, 0]}>
-                  <LabelList dataKey="count" position="right" style={{ fontSize: 12, fontWeight: 600, fill: "hsl(var(--foreground))" }} />
-                </Bar>
-              </BarChart>
-            </ChartContainer>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={statusData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="label" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    interval={0}
+                    angle={-15}
+                    textAnchor="end"
+                  />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc' }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-white dark:bg-slate-900 p-3 border rounded-lg shadow-xl">
+                            <p className="text-sm font-bold mb-1">{payload[0].payload.label}</p>
+                            <p className="text-xs text-primary font-medium">{payload[0].value} Entri</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={35}>
+                    {statusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                    <LabelList dataKey="count" position="top" style={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Admin Performance - super_admin only */}
-      {role === "super_admin" && (
-        <Card className="mb-6">
+        {/* Top Groups Chart */}
+        <Card className="lg:col-span-3 border-none shadow-md">
           <CardHeader>
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <FolderOpen className="h-5 w-5 text-primary" />
+              Top Group Halal
+            </CardTitle>
+            <CardDescription>Group dengan entri terbanyak</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {groupData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                  <FolderOpen className="h-10 w-10 mb-2 opacity-20" />
+                  <p className="text-sm">Belum ada data group</p>
+                </div>
+              ) : (
+                groupData.map((group, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium truncate max-w-[200px]">{group.name}</span>
+                      <span className="text-muted-foreground font-semibold">{group.count} Entri</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary rounded-full transition-all duration-500" 
+                        style={{ width: `${(group.count / (groupData[0]?.count || 1)) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-7">
+        {/* Recent Entries Table */}
+        <Card className={cn("border-none shadow-md", role === "super_admin" ? "lg:col-span-4" : "lg:col-span-7")}>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                Entri Terbaru
+              </CardTitle>
+              <CardDescription>Aktivitas data terakhir</CardDescription>
+            </div>
+            <Badge variant="secondary" className="font-normal">5 Terakhir</Badge>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
+                  <TableRow>
+                    <TableHead className="font-bold">Nama UMKM</TableHead>
+                    <TableHead className="font-bold">Status</TableHead>
+                    <TableHead className="font-bold text-right">Tanggal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentEntries.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center py-10 text-muted-foreground">
+                        Belum ada data entri
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    recentEntries.map((entry) => (
+                      <TableRow key={entry.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col">
+                            <span>{entry.nama}</span>
+                            <span className="text-[10px] text-muted-foreground">{entry.nomor_hp}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn("font-medium border shadow-none", STATUS_BADGE_VARIANT[entry.status] || "bg-slate-100 text-slate-700")}>
+                            {STATUS_LABELS[entry.status] || entry.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right text-xs text-muted-foreground">
+                          {new Date(entry.created_at).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Admin Performance (Super Admin Only) */}
+        {role === "super_admin" && (
+          <Card className="lg:col-span-3 border-none shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <div>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Trophy className="h-4 w-4" />
-                  Kinerja Admin
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-amber-500" />
+                  Performa Admin
                 </CardTitle>
-                <CardDescription>Ranking berdasarkan jumlah data yang di-input</CardDescription>
               </div>
               <Select value={adminPeriod} onValueChange={setAdminPeriod}>
-                <SelectTrigger className="w-[140px]">
-                  <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
-                  <SelectValue />
+                <SelectTrigger className="w-[110px] h-8 text-xs">
+                  <SelectValue placeholder="Periode" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Semua</SelectItem>
@@ -467,93 +467,40 @@ export default function Dashboard() {
                   <SelectItem value="month">30 Hari</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {adminStats.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Belum ada data</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Nama</TableHead>
-                    <TableHead className="text-right">Jumlah Input</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {adminStats.map((a, i) => (
-                    <TableRow key={a.user_id}>
-                      <TableCell>
-                        {i < 3 ? (
-                          <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                            i === 0 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" :
-                            i === 1 ? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" :
-                            "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
-                          }`}>{i + 1}</span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">{i + 1}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium">{a.name}</TableCell>
-                      <TableCell className="text-right font-semibold">{a.count}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recent Data Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Eye className="h-4 w-4" />
-            Data Entri Terbaru
-          </CardTitle>
-          <CardDescription>10 data entri terakhir yang bisa Anda akses</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {recentEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Belum ada data entri</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {visibleFields.map((f) => (
-                      <TableHead key={f.field_name}>{FIELD_LABELS[f.field_name] || f.field_name}</TableHead>
-                    ))}
-                    <TableHead>Status</TableHead>
-                    <TableHead>Tanggal</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentEntries.map((entry) => (
-                    <TableRow key={entry.id}>
-                      {visibleFields.map((f) => (
-                        <TableCell key={f.field_name} className="text-sm">
-                          {getCellValue(entry, f.field_name)}
-                        </TableCell>
-                      ))}
-                      <TableCell>
-                        <Badge variant={STATUS_BADGE_VARIANT[entry.status] || "outline"}>
-                          {STATUS_LABELS[entry.status] || entry.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(entry.created_at).toLocaleDateString("id-ID")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {adminStats.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                    <Users className="h-10 w-10 mb-2 opacity-20" />
+                    <p className="text-sm">Tidak ada data performa</p>
+                  </div>
+                ) : (
+                  adminStats.map((admin, index) => (
+                    <div key={admin.user_id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                      <div className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
+                        index === 0 ? "bg-amber-100 text-amber-700" : 
+                        index === 1 ? "bg-slate-200 text-slate-700" : 
+                        index === 2 ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-500"
+                      )}>
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{admin.name}</p>
+                        <p className="text-xs text-muted-foreground">{admin.count} Entri Berhasil</p>
+                      </div>
+                      <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                        {Math.round((admin.count / (stats.entries || 1)) * 100)}%
+                      </Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
