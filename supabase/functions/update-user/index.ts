@@ -85,14 +85,26 @@ serve(async (req) => {
       if (new_role === "owner") {
         // If user becomes an owner, they are their own owner
         await supabaseAdmin.from("profiles").update({ owner_id: user_id }).eq("id", user_id);
-      } else if (targetRole?.role === "owner") {
-        // If user was an owner and is no longer, they MUST be assigned to an owner
-        // If the actor is an owner, assign to them; if super admin, they must use change_owner later or we set to null for now
-        const defaultOwner = actorRole === "owner" ? caller.id : null;
-        await supabaseAdmin.from("profiles").update({ owner_id: defaultOwner }).eq("id", user_id);
-      } else if (actorRole === "owner") {
-        // If an owner is updating a user, ensure that user is assigned to them
-        await supabaseAdmin.from("profiles").update({ owner_id: caller.id }).eq("id", user_id);
+      } else if (OWNER_MANAGED_ROLES.includes(new_role)) {
+        // If role is a managed role, it MUST have an owner
+        if (actorRole === "owner") {
+          // If actor is owner, assign to them
+          await supabaseAdmin.from("profiles").update({ owner_id: caller.id }).eq("id", user_id);
+        } else if (actorRole === "super_admin") {
+          // If actor is super admin, they can provide new_owner_id in the same request
+          if (new_owner_id) {
+            await supabaseAdmin.from("profiles").update({ owner_id: new_owner_id }).eq("id", user_id);
+          } else {
+            // If not provided, check if user already has a valid owner (not themselves)
+            const { data: currentProfile } = await supabaseAdmin.from("profiles").select("owner_id").eq("id", user_id).single();
+            if (!currentProfile?.owner_id || currentProfile.owner_id === user_id) {
+              return new Response(JSON.stringify({ error: "Role ini wajib memiliki owner. Silakan pilih owner." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+          }
+        }
+      } else if (new_role === "super_admin") {
+        // Super admin doesn't need an owner
+        await supabaseAdmin.from("profiles").update({ owner_id: null }).eq("id", user_id);
       }
 
       return new Response(JSON.stringify({ success: true, message: "Role berhasil diubah" }), {

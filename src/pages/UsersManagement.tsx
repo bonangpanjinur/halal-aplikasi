@@ -65,6 +65,7 @@ export default function UsersManagement() {
   const [editRoleOpen, setEditRoleOpen] = useState(false);
   const [editRoleUser, setEditRoleUser] = useState<UserWithRole | null>(null);
   const [editRoleValue, setEditRoleValue] = useState<AppRole>("admin");
+  const [editRoleOwnerValue, setEditRoleOwnerValue] = useState<string>("");
   const [editingRole, setEditingRole] = useState(false);
 
   // Edit owner state
@@ -198,9 +199,21 @@ export default function UsersManagement() {
 
   const handleChangeRole = async () => {
     if (!editRoleUser) return;
+    
+    const isManagedRole = ["admin", "admin_input", "lapangan", "nib", "umkm"].includes(editRoleValue);
+    if (role === "super_admin" && isManagedRole && !editRoleOwnerValue && (!editRoleUser.owner_id || editRoleUser.owner_id === editRoleUser.id)) {
+      toast({ title: "Pilih owner terlebih dulu", variant: "destructive" });
+      return;
+    }
+
     setEditingRole(true);
     const { data, error } = await supabase.functions.invoke("update-user", {
-      body: { user_id: editRoleUser.id, action: "change_role", new_role: editRoleValue },
+      body: { 
+        user_id: editRoleUser.id, 
+        action: "change_role", 
+        new_role: editRoleValue,
+        new_owner_id: (role === "super_admin" && isManagedRole) ? editRoleOwnerValue : undefined
+      },
     });
     setEditingRole(false);
     if (error || data?.error) {
@@ -421,6 +434,7 @@ export default function UsersManagement() {
                             onClick={() => {
                               setEditRoleUser(u);
                               setEditRoleValue(u.role || "admin");
+                              setEditRoleOwnerValue(u.owner_id || "");
                               setEditRoleOpen(true);
                             }}
                           >
@@ -524,6 +538,21 @@ export default function UsersManagement() {
                 </SelectContent>
               </Select>
             </div>
+
+            {role === "super_admin" && ["admin", "admin_input", "lapangan", "nib", "umkm"].includes(editRoleValue) && (
+              <div className="space-y-2">
+                <Label>Pilih Owner</Label>
+                <Select value={editRoleOwnerValue} onValueChange={setEditRoleOwnerValue}>
+                  <SelectTrigger><SelectValue placeholder="Pilih Owner" /></SelectTrigger>
+                  <SelectContent>
+                    {owners.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>{o.full_name || o.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <Button className="w-full" onClick={handleChangeRole} disabled={editingRole}>
               {editingRole ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
