@@ -165,17 +165,53 @@ export default function AppSettings() {
   const fetchOwners = async () => {
     if (!isSuperAdmin) return;
     setLoadingOwners(true);
-    const { data: rolesData } = await supabase.from("user_roles").select("user_id").eq("role", "owner");
-    const ownerIds = rolesData?.map(r => r.user_id) || [];
-    
-    if (ownerIds.length > 0) {
-      const { data: profilesData } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, platform_fee_per_entry")
-        .in("id", ownerIds);
-      setOwners(profilesData as any ?? []);
+    try {
+      // Step 1: Get all users with the 'owner' role
+      const { data: rolesData, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "owner");
+      
+      if (rolesError) throw rolesError;
+      
+      const ownerIds = rolesData?.map(r => r.user_id) || [];
+      
+      if (ownerIds.length > 0) {
+        // Step 2: Get profiles for those users
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email, platform_fee_per_entry")
+          .in("id", ownerIds);
+          
+        if (profilesError) throw profilesError;
+        
+        // Filter out any potential duplicates and ensure data is clean
+        const uniqueProfiles = (profilesData || []).reduce((acc: OwnerProfile[], current: any) => {
+          if (!acc.find(item => item.id === current.id)) {
+            acc.push({
+              id: current.id,
+              full_name: current.full_name || "Tanpa Nama",
+              email: current.email || "No Email",
+              platform_fee_per_entry: Number(current.platform_fee_per_entry) || 0
+            });
+          }
+          return acc;
+        }, []);
+        
+        setOwners(uniqueProfiles);
+      } else {
+        setOwners([]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching owners:", error);
+      toast({ 
+        title: "Gagal memuat data owner", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    } finally {
+      setLoadingOwners(false);
     }
-    setLoadingOwners(false);
   };
 
   const fetchPaymentMethods = async () => {
@@ -499,40 +535,81 @@ export default function AppSettings() {
         {isSuperAdmin && (
           <TabsContent value="tarif_platform" className="space-y-6 outline-none">
             <Card className="border-none shadow-md">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-primary" /> Tarif Platform per Owner</CardTitle>
-                <CardDescription>Biaya yang dikenakan ke owner untuk setiap data yang masuk ke sistem.</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Building2 className="h-6 w-6 text-primary" /> 
+                    Tarif Platform per Owner
+                  </CardTitle>
+                  <CardDescription>Kelola biaya platform khusus untuk setiap owner aplikasi.</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchOwners} disabled={loadingOwners}>
+                  {loadingOwners ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  Refresh Data
+                </Button>
               </CardHeader>
-              <CardContent className="p-0">
-                {loadingOwners ? <div className="py-20 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : (
-                  <Table>
-                    <TableHeader className="bg-muted/50">
-                      <TableRow>
-                        <TableHead className="font-bold">Owner</TableHead>
-                        <TableHead className="font-bold">Email</TableHead>
-                        <TableHead className="font-bold">Tarif / Entry</TableHead>
-                        <TableHead className="w-20 text-center font-bold">Aksi</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {owners.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">Belum ada data owner</TableCell></TableRow>
-                      ) : (
-                        owners.map(o => (
-                          <TableRow key={o.id} className="hover:bg-muted/30 transition-colors">
-                            <TableCell className="font-semibold">{o.full_name}</TableCell>
-                            <TableCell className="text-muted-foreground">{o.email}</TableCell>
-                            <TableCell className="font-mono text-primary font-bold">Rp {o.platform_fee_per_entry?.toLocaleString() || 0}</TableCell>
-                            <TableCell className="text-center">
-                              <Button variant="ghost" size="icon" onClick={() => { setEditingOwner(o); setEditFee(o.platform_fee_per_entry || 0); }} className="hover:bg-primary/10 hover:text-primary">
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
+              <CardContent>
+                {loadingOwners ? (
+                  <div className="py-20 flex flex-col items-center justify-center gap-4">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground font-medium">Memuat data owner...</p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
+                    <Table>
+                      <TableHeader className="bg-muted/30">
+                        <TableRow>
+                          <TableHead className="font-bold h-12">Nama Owner</TableHead>
+                          <TableHead className="font-bold h-12">Email Terdaftar</TableHead>
+                          <TableHead className="font-bold h-12 text-right pr-8">Tarif / Entry</TableHead>
+                          <TableHead className="w-[100px] text-center font-bold h-12">Pengaturan</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {owners.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-16">
+                              <div className="flex flex-col items-center gap-2">
+                                <Users className="h-10 w-10 text-muted-foreground/30" />
+                                <p className="text-muted-foreground font-medium">Tidak ada data owner ditemukan</p>
+                                <p className="text-xs text-muted-foreground/60 max-w-[250px]">Pastikan sudah ada user dengan role 'owner' di sistem.</p>
+                              </div>
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                        ) : (
+                          owners.map(o => (
+                            <TableRow key={o.id} className="hover:bg-muted/20 transition-all border-b last:border-0 group">
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                                    {o.full_name?.charAt(0).toUpperCase() || 'O'}
+                                  </div>
+                                  <span className="font-semibold text-foreground">{o.full_name}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-sm font-medium">{o.email}</TableCell>
+                              <TableCell className="text-right pr-8">
+                                <Badge variant="outline" className="font-mono text-primary font-bold px-3 py-1 border-primary/20 bg-primary/5 text-base">
+                                  Rp {o.platform_fee_per_entry?.toLocaleString() || 0}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button 
+                                  variant="secondary" 
+                                  size="sm" 
+                                  onClick={() => { setEditingOwner(o); setEditFee(o.platform_fee_per_entry || 0); }} 
+                                  className="h-9 gap-2 font-semibold hover:bg-primary hover:text-primary-foreground transition-all shadow-sm"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                  Atur Tarif
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>
