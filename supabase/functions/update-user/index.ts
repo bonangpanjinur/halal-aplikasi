@@ -26,15 +26,15 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { data: callerRole } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", caller.id).single();
-    const actorRole = callerRole?.role;
+    const { data: callerRoleData } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", caller.id).single();
+    const actorRole = callerRoleData?.role;
     if (actorRole !== "super_admin" && actorRole !== "owner") {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const body = await req.json();
     const { user_id, action, new_role, new_password, new_owner_id } = body;
-    console.log("Update user request:", { user_id, action, actorRole, callerId: caller.id });
+    console.log("Update user request:", { user_id, action, actorRole, callerId: caller.id, new_owner_id });
 
     if (!user_id || user_id === caller.id) {
       return new Response(JSON.stringify({ error: "User tidak valid" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -64,7 +64,6 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Role baru wajib diisi" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Super admin cannot change another super_admin's role
       if (targetRole?.role === "super_admin") {
         return new Response(JSON.stringify({ error: "Tidak bisa mengubah role super admin" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -76,24 +75,21 @@ serve(async (req) => {
 
       if (targetRole) {
         const { error } = await supabaseAdmin.from("user_roles").update({ role: new_role }).eq("user_id", user_id);
-        if (error) {
-          return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
+        if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } else {
         const { error } = await supabaseAdmin.from("user_roles").insert({ user_id, role: new_role });
-        if (error) {
-          return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
+        if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // If changing to owner, set owner_id to self; 
-      // If changing FROM owner to something else, set owner_id to null (super admin must then assign an owner)
-      // If an owner is changing a user's role, ensure the owner_id is set to the owner's ID
+      // Logic for owner_id assignment when role changes
       if (new_role === "owner") {
+        // If user becomes an owner, they are their own owner
         await supabaseAdmin.from("profiles").update({ owner_id: user_id }).eq("id", user_id);
       } else if (targetRole?.role === "owner") {
+        // If user was an owner and is no longer, reset owner_id
         await supabaseAdmin.from("profiles").update({ owner_id: null }).eq("id", user_id);
       } else if (actorRole === "owner") {
+        // If an owner is creating/updating a user, assign that user to the owner
         await supabaseAdmin.from("profiles").update({ owner_id: caller.id }).eq("id", user_id);
       }
 
@@ -109,14 +105,7 @@ serve(async (req) => {
       }
 
       const { error } = await supabaseAdmin.auth.admin.updateUserById(user_id, { password: new_password });
-      if (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-
-      // If an owner is resetting password, ensure the owner_id is set to the owner's ID
-      if (actorRole === "owner") {
-        await supabaseAdmin.from("profiles").update({ owner_id: caller.id }).eq("id", user_id);
-      }
+      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       return new Response(JSON.stringify({ success: true, message: "Password berhasil direset" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -129,16 +118,46 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Hanya super admin yang bisa mengubah owner" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Cannot change owner of another owner
-      if (targetRole?.role === "owner") {
-        return new Response(JSON.stringify({ error: "Tidak bisa mengubah owner dari user ber-role owner" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (targetRole?.role === "super_admin") {
+        return new Response(JSON.stringify({ error: "Tidak bisa mengubah owner dari user ber-role super admin" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      console.log("Changing owner for user:", user_id, "to:", new_owner_id);
-      const { error } = await supabaseAdmin.from("profiles").update({ owner_id: new_owner_id || null }).eq("id", user_id);
-      if (error) {
-        console.error("Error updating owner:", error);
-        return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.log(`Processing change_owner for user ${user_id} to owner ${new_owner_id}`);
+
+      // If new_owner_id is provided, verify it exists and has 'owner' role
+      if (new_owner_id) {
+        const { data: ownerRole, error: ownerCheckError } = await supabaseAdmin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", new_owner_id)
+          .single();
+        
+        if (ownerCheckError || ownerRole?.role !== "owner") {
+          console.error("Owner validation failed:", { ownerCheckError, ownerRole });
+          return new Response(JSON.stringify({ error: "User target owner tidak valid atau tidak memiliki role owner" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+
+      // Update owner_id in profiles table
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .update({ owner_id: new_owner_id || null })
+        .eq("id", user_id);
+
+      if (profileError) {
+        console.error("Profile update error:", profileError);
+        return new Response(JSON.stringify({ error: `Gagal update profile: ${profileError.message}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Also update owner_id in groups table for any groups created by this user
+      const { error: groupError } = await supabaseAdmin
+        .from("groups")
+        .update({ owner_id: new_owner_id || null })
+        .eq("created_by", user_id);
+
+      if (groupError) {
+        console.error("Group update error (non-fatal):", groupError);
+        // We don't return error here as the primary profile update succeeded
       }
 
       return new Response(JSON.stringify({ success: true, message: "Owner berhasil diperbarui" }), {
@@ -148,6 +167,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ error: "Action tidak valid" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
+    console.error("Unhandled error in Edge Function:", err);
     return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
