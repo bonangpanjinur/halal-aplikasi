@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, KeyRound, UserCog } from "lucide-react";
+import { Plus, Trash2, KeyRound, UserCog, Calculator } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -22,6 +22,11 @@ interface UserWithRole {
   email: string | null;
   role: AppRole | null;
   owner_id?: string | null;
+  commission_type?: string | null;
+  monthly_salary?: number | null;
+  transport_allowance?: number | null;
+  target_ktp?: number | null;
+  over_target_rate?: number | null;
 }
 
 const CREATABLE_ROLES: Record<AppRole, AppRole[]> = {
@@ -68,6 +73,16 @@ export default function UsersManagement() {
   const [resetPwValue, setResetPwValue] = useState("");
   const [resettingPw, setResettingPw] = useState(false);
 
+  // Commission Settings state
+  const [commOpen, setCommOpen] = useState(false);
+  const [commUser, setCommUser] = useState<UserWithRole | null>(null);
+  const [commType, setCommType] = useState<"per_certificate" | "monthly_salary">("per_certificate");
+  const [commSalary, setCommSalary] = useState(0);
+  const [commTransport, setCommTransport] = useState(0);
+  const [commTarget, setCommTarget] = useState(130);
+  const [commOverRate, setCommOverRate] = useState(25000);
+  const [savingComm, setSavingComm] = useState(false);
+
   const creatableRoles = useMemo(() => {
     if (!role) return [];
     return CREATABLE_ROLES[role] || [];
@@ -95,6 +110,11 @@ export default function UsersManagement() {
         email: p.email,
         role: roleMap.get(p.id) ?? null,
         owner_id: p.owner_id ?? null,
+        commission_type: p.commission_type,
+        monthly_salary: p.monthly_salary,
+        transport_allowance: p.transport_allowance,
+        target_ktp: p.target_ktp,
+        over_target_rate: p.over_target_rate,
       }));
 
       let visibleUsers: UserWithRole[] = [];
@@ -206,6 +226,28 @@ export default function UsersManagement() {
     setResetPwOpen(false);
     setResetPwUser(null);
     setResetPwValue("");
+  };
+
+  const handleSaveCommission = async () => {
+    if (!commUser) return;
+    setSavingComm(true);
+    const { error } = await supabase.from("profiles").update({
+      commission_type: commType,
+      monthly_salary: commSalary,
+      transport_allowance: commTransport,
+      target_ktp: commTarget,
+      over_target_rate: commOverRate,
+    } as any).eq("id", commUser.id);
+    
+    setSavingComm(false);
+    if (error) {
+      toast({ title: "Gagal menyimpan pengaturan komisi", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Pengaturan Komisi Disimpan", variant: "success" as any });
+    setCommOpen(false);
+    setCommUser(null);
+    fetchUsers();
   };
 
   const canEditRole = (target: UserWithRole) => {
@@ -357,6 +399,24 @@ export default function UsersManagement() {
                             <KeyRound className="h-4 w-4 text-amber-600" />
                           </Button>
                         )}
+                        {(role === "owner" || role === "super_admin") && u.id !== user?.id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Pengaturan Komisi"
+                            onClick={() => {
+                              setCommUser(u);
+                              setCommType((u.commission_type as any) || "per_certificate");
+                              setCommSalary(u.monthly_salary || 0);
+                              setCommTransport(u.transport_allowance || 0);
+                              setCommTarget(u.target_ktp || 130);
+                              setCommOverRate(u.over_target_rate || 25000);
+                              setCommOpen(true);
+                            }}
+                          >
+                            <Calculator className="h-4 w-4 text-blue-600" />
+                          </Button>
+                        )}
                         {canDeleteUser(u) && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -445,6 +505,58 @@ export default function UsersManagement() {
             </div>
             <Button onClick={handleResetPassword} className="w-full" disabled={resettingPw || resetPwValue.length < 6}>
               {resettingPw ? "Mereset..." : "Reset Password"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Commission Settings Dialog */}
+      <Dialog open={commOpen} onOpenChange={setCommOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pengaturan Komisi & Gaji</DialogTitle>
+            <DialogDescription>
+              Atur skema pembayaran untuk {commUser?.full_name || commUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Jenis Komisi Utama</Label>
+              <Select value={commType} onValueChange={(v) => setCommType(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="per_certificate">Komisi Per Sertifikat</SelectItem>
+                  <SelectItem value="monthly_salary">Gaji Per Bulan</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {commType === "monthly_salary" && (
+              <div className="space-y-2">
+                <Label>Gaji Pokok (Rp)</Label>
+                <Input type="number" value={commSalary} onChange={(e) => setCommSalary(Number(e.target.value))} />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Uang Transport (Rp)</Label>
+              <Input type="number" value={commTransport} onChange={(e) => setCommTransport(Number(e.target.value))} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Target (KTP)</Label>
+                <Input type="number" value={commTarget} onChange={(e) => setCommTarget(Number(e.target.value))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Bonus per KTP (Rp)</Label>
+                <Input type="number" value={commOverRate} onChange={(e) => setCommOverRate(Number(e.target.value))} />
+                <p className="text-[10px] text-muted-foreground italic">Diberikan jika melebihi target</p>
+              </div>
+            </div>
+
+            <Button onClick={handleSaveCommission} className="w-full" disabled={savingComm}>
+              {savingComm ? "Menyimpan..." : "Simpan Pengaturan"}
             </Button>
           </div>
         </DialogContent>

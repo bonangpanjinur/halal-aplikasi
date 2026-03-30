@@ -669,6 +669,11 @@ export type Database = {
           phone: string | null
           platform_fee_per_entry: number | null
           updated_at: string
+          commission_type: string | null
+          monthly_salary: number | null
+          transport_allowance: number | null
+          target_ktp: number | null
+          over_target_rate: number | null
         }
         Insert: {
           created_at?: string
@@ -679,6 +684,11 @@ export type Database = {
           phone?: string | null
           platform_fee_per_entry?: number | null
           updated_at?: string
+          commission_type?: string | null
+          monthly_salary?: number | null
+          transport_allowance?: number | null
+          target_ktp?: number | null
+          over_target_rate?: number | null
         }
         Update: {
           created_at?: string
@@ -689,6 +699,11 @@ export type Database = {
           phone?: string | null
           platform_fee_per_entry?: number | null
           updated_at?: string
+          commission_type?: string | null
+          monthly_salary?: number | null
+          transport_allowance?: number | null
+          target_ktp?: number | null
+          over_target_rate?: number | null
         }
         Relationships: [
           {

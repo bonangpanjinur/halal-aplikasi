@@ -51,6 +51,7 @@ export default function Komisi() {
   const [selectedUser, setSelectedUser] = useState<string>("mine");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
 
   const currentPeriod = new Date().toISOString().slice(0, 7);
   const periodOptions = useMemo(() => generatePeriodOptions(), []);
@@ -101,16 +102,36 @@ export default function Komisi() {
     setUsers(data ?? []);
   };
 
+  const fetchProfile = async () => {
+    const targetUserId = canManageCommissions && selectedUser !== "mine" ? selectedUser : user?.id;
+    if (!targetUserId) return;
+    const { data } = await supabase.from("profiles").select("*").eq("id", targetUserId).single();
+    setProfile(data);
+  };
+
   useEffect(() => {
     fetchCommissions();
     fetchUsers();
+    fetchProfile();
   }, [user, role, selectedUser, selectedPeriod]);
 
   const totalEarned = commissions.reduce((sum, c) => sum + c.amount, 0);
   const totalPending = commissions.filter((c) => c.status === "pending").reduce((sum, c) => sum + c.amount, 0);
   const totalPaid = commissions.filter((c) => c.status === "paid").reduce((sum, c) => sum + c.amount, 0);
-  const currentPeriodEarned = commissions.filter((c) => c.period === currentPeriod).reduce((sum, c) => sum + c.amount, 0);
   const pendingIds = commissions.filter((c) => c.status === "pending").map((c) => c.id);
+
+  const currentPeriodEntries = commissions.filter((c) => c.period === (selectedPeriod === "all" ? currentPeriod : selectedPeriod));
+  const entryCount = currentPeriodEntries.length;
+  
+  const transport = profile?.transport_allowance || 0;
+  const target = profile?.target_ktp || 130;
+  const overRate = profile?.over_target_rate || 25000;
+  const isMonthly = profile?.commission_type === "monthly_salary";
+  
+  const baseIncome = isMonthly ? (profile?.monthly_salary || 0) : currentPeriodEntries.reduce((sum, c) => sum + c.amount, 0);
+  const bonusCount = Math.max(0, entryCount - target);
+  const bonusAmount = bonusCount * overRate;
+  const totalPeriodIncome = baseIncome + transport + bonusAmount;
 
   const handleMarkPaid = async (ids: string[]) => {
     const { error } = await supabase.from("commissions").update({ status: "paid", paid_at: new Date().toISOString() } as any).in("id", ids);
@@ -208,11 +229,39 @@ export default function Komisi() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-primary/10 p-2"><Wallet className="h-5 w-5 text-primary" /></div><div><p className="text-xs text-muted-foreground">Total Komisi</p><p className="text-lg font-bold">{formatRp(totalEarned)}</p></div></CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-primary/10 p-2"><Wallet className="h-5 w-5 text-primary" /></div><div><p className="text-xs text-muted-foreground">Total Akumulasi</p><p className="text-lg font-bold">{formatRp(totalEarned)}</p></div></CardContent></Card>
         <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-secondary p-2 text-secondary-foreground"><Clock className="h-5 w-5" /></div><div><p className="text-xs text-muted-foreground">Belum Cair</p><p className="text-lg font-bold">{formatRp(totalPending)}</p></div></CardContent></Card>
         <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-primary/10 p-2"><CheckCircle className="h-5 w-5 text-primary" /></div><div><p className="text-xs text-muted-foreground">Sudah Ditransfer</p><p className="text-lg font-bold">{formatRp(totalPaid)}</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-muted p-2"><TrendingUp className="h-5 w-5 text-foreground" /></div><div><p className="text-xs text-muted-foreground">Periode Ini</p><p className="text-lg font-bold">{formatRp(currentPeriodEarned)}</p></div></CardContent></Card>
+        <Card className="border-primary bg-primary/5"><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-primary p-2 text-primary-foreground"><TrendingUp className="h-5 w-5" /></div><div><p className="text-xs text-primary/80 font-medium">Estimasi Periode Ini</p><p className="text-lg font-bold text-primary">{formatRp(totalPeriodIncome)}</p></div></CardContent></Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Rincian Estimasi Pendapatan ({selectedPeriod === "all" ? "Bulan Ini" : periodOptions.find(p => p.value === selectedPeriod)?.label})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{isMonthly ? "Gaji Pokok" : "Komisi Per Sertifikat"}</p>
+              <p className="font-semibold">{formatRp(baseIncome)}</p>
+              {!isMonthly && <p className="text-[10px] text-muted-foreground">{entryCount} sertifikat selesai</p>}
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Uang Transport</p>
+              <p className="font-semibold">{formatRp(transport)}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Bonus Melebihi Target</p>
+              <p className="font-semibold">{formatRp(bonusAmount)}</p>
+              <p className="text-[10px] text-muted-foreground">{bonusCount} KTP di atas target ({target})</p>
+            </div>
+            <div className="space-y-1 border-l pl-4">
+              <p className="text-xs text-primary font-medium">Total Estimasi</p>
+              <p className="text-xl font-bold text-primary">{formatRp(totalPeriodIncome)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {canManageCommissions && pendingIds.length > 0 && (
         <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
