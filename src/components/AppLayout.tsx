@@ -267,7 +267,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           ) : (
             <Shield className="h-6 w-6 text-sidebar-primary" />
           )}
-          <span className="font-bold tracking-tight text-sidebar-primary-foreground">{appName}</span>
+          <span className="font-bold tracking-tight text-foreground">{appName}</span>
         </div>
         <nav className="flex-1 space-y-1 p-2">
           {items.map((item) => (
@@ -281,8 +281,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                   : "text-sidebar-foreground hover:bg-sidebar-accent/50"
               )}
             >
-              <item.icon className="h-4 w-4" />
-              {item.label}
+              <item.icon className={cn("h-4 w-4", location.pathname === item.path ? "text-primary" : "text-muted-foreground")} />
+              <span className={cn(location.pathname === item.path ? "text-foreground" : "text-muted-foreground")}>{item.label}</span>
             </button>
           ))}
         </nav>
@@ -291,10 +291,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             onClick={() => navigate("/profile")}
             className="mb-2 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
           >
-            <UserCog className="h-4 w-4" />
+            <UserCog className="h-4 w-4 text-muted-foreground" />
             <div className="text-left">
-              <div className="truncate text-xs">{user?.email}</div>
-              <div className="text-xs font-medium capitalize">{role?.replace("_", " ")}</div>
+              <div className="truncate text-xs text-foreground">{user?.email}</div>
+              <div className="text-xs font-medium capitalize text-muted-foreground">{role?.replace("_", " ")}</div>
             </div>
           </button>
           <Button
