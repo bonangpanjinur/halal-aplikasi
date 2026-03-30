@@ -52,14 +52,11 @@ serve(async (req) => {
     // Determine the owner_id for the new user
     let targetOwnerId = null;
     if (actorRole === "owner") {
-      // If an owner is creating a user, that user is automatically owned by the caller
       targetOwnerId = caller.id;
     } else if (actorRole === "super_admin") {
       if (targetRole === "owner") {
-        // If a super admin creates an owner, the owner is their own owner (self-owned)
         targetOwnerId = null; 
       } else {
-        // If a super admin creates a non-owner user, they MUST specify an owner
         targetOwnerId = owner_id || null;
         if (!targetOwnerId) {
           return new Response(JSON.stringify({ error: "Owner wajib dipilih untuk role ini agar terelasi dengan benar" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -82,18 +79,9 @@ serve(async (req) => {
 
     const newUserId = newUser.user.id;
 
-    // Assign role
-    const { error: roleError } = await supabaseAdmin.from("user_roles").insert({ user_id: newUserId, role: targetRole });
-    if (roleError) {
-      console.error("Role assignment error:", roleError);
-      await supabaseAdmin.auth.admin.deleteUser(newUserId);
-      return new Response(JSON.stringify({ error: `Gagal menetapkan role: ${roleError.message}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    // Finalize owner_id: if the new user is an owner, they own themselves
+    // IMPORTANT: Reorder operations to satisfy database triggers
+    // 1. Create Profile first (without role check trigger firing yet because role is null)
     const finalOwnerId = targetRole === "owner" ? newUserId : targetOwnerId;
-
-    // Create/Update profile
     const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
       id: newUserId,
       full_name: normalizedName,
@@ -103,6 +91,18 @@ serve(async (req) => {
 
     if (profileError) {
       console.error("Profile creation error:", profileError);
+      await supabaseAdmin.auth.admin.deleteUser(newUserId);
+      return new Response(JSON.stringify({ error: `Gagal membuat profil: ${profileError.message}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // 2. Assign role (trigger will now pass because profile with owner_id already exists)
+    const { error: roleError } = await supabaseAdmin.from("user_roles").insert({ user_id: newUserId, role: targetRole });
+    if (roleError) {
+      console.error("Role assignment error:", roleError);
+      // Cleanup
+      await supabaseAdmin.from("profiles").delete().eq("id", newUserId);
+      await supabaseAdmin.auth.admin.deleteUser(newUserId);
+      return new Response(JSON.stringify({ error: `Gagal menetapkan role: ${roleError.message}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ 

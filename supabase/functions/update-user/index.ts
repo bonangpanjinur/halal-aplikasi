@@ -73,38 +73,36 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Role tidak diizinkan" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // Logic for owner_id assignment when role changes
+      let finalOwnerId = targetProfile?.owner_id;
+      if (new_role === "owner") {
+        finalOwnerId = user_id;
+      } else if (OWNER_MANAGED_ROLES.includes(new_role)) {
+        if (actorRole === "owner") {
+          finalOwnerId = caller.id;
+        } else if (actorRole === "super_admin") {
+          if (new_owner_id) {
+            finalOwnerId = new_owner_id;
+          } else if (!finalOwnerId || finalOwnerId === user_id) {
+            return new Response(JSON.stringify({ error: "Role ini wajib memiliki owner. Silakan pilih owner." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+        }
+      } else if (new_role === "super_admin") {
+        finalOwnerId = null;
+      }
+
+      // IMPORTANT: Update profile first to satisfy trigger when role is updated
+      const { error: profileError } = await supabaseAdmin.from("profiles").update({ owner_id: finalOwnerId }).eq("id", user_id);
+      if (profileError) {
+        return new Response(JSON.stringify({ error: `Gagal update profil: ${profileError.message}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       if (targetRole) {
         const { error } = await supabaseAdmin.from("user_roles").update({ role: new_role }).eq("user_id", user_id);
         if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } else {
         const { error } = await supabaseAdmin.from("user_roles").insert({ user_id, role: new_role });
         if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-
-      // Logic for owner_id assignment when role changes
-      if (new_role === "owner") {
-        // If user becomes an owner, they are their own owner
-        await supabaseAdmin.from("profiles").update({ owner_id: user_id }).eq("id", user_id);
-      } else if (OWNER_MANAGED_ROLES.includes(new_role)) {
-        // If role is a managed role, it MUST have an owner
-        if (actorRole === "owner") {
-          // If actor is owner, assign to them
-          await supabaseAdmin.from("profiles").update({ owner_id: caller.id }).eq("id", user_id);
-        } else if (actorRole === "super_admin") {
-          // If actor is super admin, they can provide new_owner_id in the same request
-          if (new_owner_id) {
-            await supabaseAdmin.from("profiles").update({ owner_id: new_owner_id }).eq("id", user_id);
-          } else {
-            // If not provided, check if user already has a valid owner (not themselves)
-            const { data: currentProfile } = await supabaseAdmin.from("profiles").select("owner_id").eq("id", user_id).single();
-            if (!currentProfile?.owner_id || currentProfile.owner_id === user_id) {
-              return new Response(JSON.stringify({ error: "Role ini wajib memiliki owner. Silakan pilih owner." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-            }
-          }
-        }
-      } else if (new_role === "super_admin") {
-        // Super admin doesn't need an owner
-        await supabaseAdmin.from("profiles").update({ owner_id: null }).eq("id", user_id);
       }
 
       return new Response(JSON.stringify({ success: true, message: "Role berhasil diubah" }), {
@@ -136,9 +134,6 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Tidak bisa mengubah owner dari user ber-role super admin" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      console.log(`Processing change_owner for user ${user_id} to owner ${new_owner_id}`);
-
-      // If new_owner_id is provided, verify it exists and has 'owner' role
       if (new_owner_id) {
         const { data: ownerRole, error: ownerCheckError } = await supabaseAdmin
           .from("user_roles")
@@ -147,36 +142,27 @@ serve(async (req) => {
           .single();
         
         if (ownerCheckError || ownerRole?.role !== "owner") {
-          console.error("Owner validation failed:", { ownerCheckError, ownerRole });
           return new Response(JSON.stringify({ error: "User target owner tidak valid atau tidak memiliki role owner" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       } else {
-        // For roles like admin, nib, etc., owner_id should NOT be null based on user requirement
         if (targetRole && OWNER_MANAGED_ROLES.includes(targetRole.role)) {
           return new Response(JSON.stringify({ error: "Role ini wajib memiliki owner dan tidak boleh kosong" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
 
-      // Update owner_id in profiles table
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
         .update({ owner_id: new_owner_id || null })
         .eq("id", user_id);
 
       if (profileError) {
-        console.error("Profile update error:", profileError);
         return new Response(JSON.stringify({ error: `Gagal update profile: ${profileError.message}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Also update owner_id in groups table for any groups created by this user
-      const { error: groupError } = await supabaseAdmin
+      await supabaseAdmin
         .from("groups")
         .update({ owner_id: new_owner_id || null })
         .eq("created_by", user_id);
-
-      if (groupError) {
-        console.error("Group update error (non-fatal):", groupError);
-      }
 
       return new Response(JSON.stringify({ success: true, message: "Owner berhasil diperbarui dan relasi telah ditetapkan" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
