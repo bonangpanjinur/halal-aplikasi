@@ -667,6 +667,7 @@ export type Database = {
           id: string
           owner_id: string | null
           phone: string | null
+          platform_fee_per_entry: number | null
           updated_at: string
         }
         Insert: {
@@ -676,6 +677,7 @@ export type Database = {
           id: string
           owner_id?: string | null
           phone?: string | null
+          platform_fee_per_entry?: number | null
           updated_at?: string
         }
         Update: {
@@ -685,6 +687,7 @@ export type Database = {
           id?: string
           owner_id?: string | null
           phone?: string | null
+          platform_fee_per_entry?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -703,6 +706,7 @@ export type Database = {
           group_id: string
           id: string
           is_active: boolean
+          pic_id: string | null
           slug: string | null
           token: string
           user_id: string
@@ -712,6 +716,7 @@ export type Database = {
           group_id: string
           id?: string
           is_active?: boolean
+          pic_id?: string | null
           slug?: string | null
           token?: string
           user_id: string
@@ -721,6 +726,7 @@ export type Database = {
           group_id?: string
           id?: string
           is_active?: boolean
+          pic_id?: string | null
           slug?: string | null
           token?: string
           user_id?: string
@@ -731,6 +737,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_links_pic_id_fkey"
+            columns: ["pic_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
