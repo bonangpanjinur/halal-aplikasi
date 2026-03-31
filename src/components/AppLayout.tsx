@@ -42,7 +42,7 @@ const SUPER_NAV = [
   { label: "Penagihan", icon: CreditCard, path: "/billing-management" },
   { label: "Workflow Config", icon: Workflow, path: "/workflow-config" },
   { label: "Template Dokumen", icon: FileText, path: "/document-templates" },
-  { label: "Rating & Feedback", icon: Star, path: "/ratings" },
+  // { label: "Rating & Feedback", icon: Star, path: "/ratings" },
   { label: "Pengaturan", icon: Settings, path: "/settings" },
 ];
 
@@ -51,10 +51,10 @@ const OWNER_NAV = [
   { label: "Kelola User", icon: Users, path: "/users" },
   { label: "Group Halal", icon: FolderOpen, path: "/groups" },
   { label: "Share Link", icon: Link2, path: "/share" },
-  { label: "Komisi", icon: Wallet, path: "/komisi" },
-  { label: "Paket & Billing", icon: CreditCard, path: "/billing" },
+  { label: "Tagihan", icon: CreditCard, path: "/komisi" },
+  { label: "Paket & Billing", icon: Wallet, path: "/billing" },
   { label: "Template Dokumen", icon: FileText, path: "/document-templates" },
-  { label: "Rating & Feedback", icon: Star, path: "/ratings" },
+  // { label: "Rating & Feedback", icon: Star, path: "/ratings" },
   { label: "Pengaturan", icon: Settings, path: "/settings" },
 ];
 

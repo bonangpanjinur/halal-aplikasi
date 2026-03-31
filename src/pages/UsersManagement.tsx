@@ -629,8 +629,8 @@ export default function UsersManagement() {
               <Select value={commType} onValueChange={(v: any) => setCommType(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="per_certificate">Komisi per Sertifikat</SelectItem>
-                  <SelectItem value="monthly_salary">Gaji Bulanan + Bonus Target</SelectItem>
+                  <SelectItem value="per_certificate">Komisi</SelectItem>
+                  <SelectItem value="monthly_salary">Gaji</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -48,7 +48,7 @@ export default function Komisi() {
 
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string>("mine");
+  const [selectedUser, setSelectedUser] = useState<string>(role === "owner" ? "" : "mine");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
@@ -67,7 +67,7 @@ export default function Komisi() {
     }
 
     setLoading(true);
-    const targetUserId = canManageCommissions && selectedUser !== "mine" ? selectedUser : user.id;
+    const targetUserId = (canManageCommissions && selectedUser !== "mine") ? (selectedUser === "" ? user.id : selectedUser) : user.id;
 
     let query = supabase
       .from("commissions")
@@ -99,7 +99,11 @@ export default function Komisi() {
       query = query.eq("owner_id", user.id);
     }
     const { data } = await query;
-    setUsers(data ?? []);
+    const userList = data ?? [];
+    setUsers(userList);
+    if (role === "owner" && selectedUser === "" && userList.length > 0) {
+      setSelectedUser(userList[0].id);
+    }
   };
 
   const fetchProfile = async () => {
@@ -171,7 +175,7 @@ export default function Komisi() {
   if (isSuperAdmin) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Komisi & Saldo</h1>
+        <h1 className="text-2xl font-bold">{role === "owner" ? "Tagihan & Pembayaran" : "Komisi & Saldo"}</h1>
         <Card>
           <CardContent className="flex flex-col items-start gap-3 py-8">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -190,7 +194,7 @@ export default function Komisi() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Komisi & Saldo</h1>
+        <h1 className="text-2xl font-bold">{role === "owner" ? "Tagihan & Pembayaran" : "Komisi & Saldo"}</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger className="w-44">
@@ -211,7 +215,7 @@ export default function Komisi() {
                 <SelectValue placeholder="Lihat komisi user..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="mine">Komisi Saya</SelectItem>
+                {role !== "owner" && <SelectItem value="mine">Komisi Saya</SelectItem>}
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>{u.full_name || u.email || u.id.slice(0, 8)}</SelectItem>
                 ))}
@@ -242,7 +246,7 @@ export default function Komisi() {
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{isMonthly ? "Gaji Pokok" : "Komisi Per Sertifikat"}</p>
+              <p className="text-xs text-muted-foreground">{isMonthly ? "Gaji" : "Komisi"}</p>
               <p className="font-semibold">{formatRp(baseIncome)}</p>
               {!isMonthly && <p className="text-[10px] text-muted-foreground">{entryCount} sertifikat selesai</p>}
             </div>
