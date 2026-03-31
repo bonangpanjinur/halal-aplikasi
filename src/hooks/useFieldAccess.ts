@@ -8,12 +8,14 @@ export interface FieldAccess {
   can_edit: boolean;
 }
 
-export function useFieldAccess(targetRole?: string) {
-  const { role } = useAuth();
+export function useFieldAccess(targetRole?: string, targetUserId?: string) {
+  const { role, user } = useAuth();
   const [fields, setFields] = useState<FieldAccess[]>([]);
   const [loading, setLoading] = useState(true);
 
   const effectiveRole = targetRole || role;
+  const effectiveUserId = targetUserId || user?.id;
+  
   // Only super_admin has unrestricted field access across all tenants
   // Owner has full access to their own tenant data (enforced by RLS at database level)
   const isSuperRole = effectiveRole === "super_admin";
@@ -28,6 +30,22 @@ export function useFieldAccess(targetRole?: string) {
     }
     const fetch = async () => {
       setLoading(true);
+      
+      // 1. Try to fetch per-user overrides first
+      if (effectiveUserId) {
+        const { data: userAccess } = await supabase
+          .from("user_field_access" as any)
+          .select("field_name, can_view, can_edit")
+          .eq("user_id", effectiveUserId);
+        
+        if (userAccess && userAccess.length > 0) {
+          setFields(userAccess as FieldAccess[]);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 2. Fallback to role-based access
       const { data } = await supabase
         .from("field_access")
         .select("field_name, can_view, can_edit")
@@ -36,7 +54,7 @@ export function useFieldAccess(targetRole?: string) {
       setLoading(false);
     };
     fetch();
-  }, [effectiveRole]);
+  }, [effectiveRole, effectiveUserId]);
 
   const canView = (field: string) => {
     // Super admin has full access

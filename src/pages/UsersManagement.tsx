@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, KeyRound, UserCog, Calculator } from "lucide-react";
+import { Plus, Trash2, KeyRound, UserCog, Calculator, ShieldCheck, Loader2, Save } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -48,6 +49,21 @@ const ROLE_LABELS: Record<AppRole, string> = {
   nib: "NIB",
   umkm: "UMKM",
 };
+
+const FIELDS = [
+  { key: "nama", label: "Nama" },
+  { key: "alamat", label: "Alamat" },
+  { key: "nomor_hp", label: "Nomor HP" },
+  { key: "email_halal", label: "Email Halal" },
+  { key: "sandi_halal", label: "Sandi Halal" },
+  { key: "email_nib", label: "Email NIB" },
+  { key: "sandi_nib", label: "Sandi NIB" },
+  { key: "ktp", label: "Foto KTP" },
+  { key: "nib", label: "NIB" },
+  { key: "foto_produk", label: "Foto Produk" },
+  { key: "foto_verifikasi", label: "Foto Verifikasi" },
+  { key: "sertifikat", label: "Sertifikat Halal" },
+];
 
 export default function UsersManagement() {
   const { role, user } = useAuth();
@@ -89,6 +105,13 @@ export default function UsersManagement() {
   const [commTarget, setCommTarget] = useState(130);
   const [commOverRate, setCommOverRate] = useState(25000);
   const [savingComm, setSavingComm] = useState(false);
+
+  // Access Settings state
+  const [accessOpen, setAccessOpen] = useState(false);
+  const [accessUser, setAccessUser] = useState<UserWithRole | null>(null);
+  const [userAccess, setUserAccess] = useState<Record<string, { can_view: boolean; can_edit: boolean }>>({});
+  const [loadingAccess, setLoadingAccess] = useState(false);
+  const [savingAccess, setSavingAccess] = useState(false);
 
   const creatableRoles = useMemo(() => {
     if (!role) return [];
@@ -251,20 +274,101 @@ export default function UsersManagement() {
     }
     setResettingPw(true);
     const { data, error } = await supabase.functions.invoke("update-user", {
-      body: { user_id: resetPwUser.id, action: "reset_password", new_password: resetPwValue },
+      body: { 
+        user_id: resetPwUser.id, 
+        action: "reset_password", 
+        new_password: resetPwValue 
+      },
     });
     setResettingPw(false);
     if (error || data?.error) {
-      toast({ title: "Gagal mereset password", description: error?.message || data?.error, variant: "destructive" });
+      toast({ title: "Gagal reset password", description: error?.message || data?.error, variant: "destructive" });
       return;
     }
-    toast({ title: "Password Direset", description: "Kata sandi user telah berhasil diperbarui.", variant: "success" as any });
+    toast({ title: "Password Direset", description: "Kata sandi user telah berhasil diubah.", variant: "success" as any });
     setResetPwOpen(false);
     setResetPwUser(null);
     setResetPwValue("");
   };
 
-  const handleSaveCommission = async () => {
+  const fetchUserAccess = async (userId: string, userRole: string) => {
+    setLoadingAccess(true);
+    try {
+      // 1. Fetch current user overrides
+      const { data: overrides } = await supabase
+        .from("user_field_access" as any)
+        .select("field_name, can_view, can_edit")
+        .eq("user_id", userId);
+
+      // 2. Fetch role defaults
+      const { data: defaults } = await supabase
+        .from("field_access")
+        .select("field_name, can_view, can_edit")
+        .eq("role", userRole as any);
+
+      const accessMap: Record<string, { can_view: boolean; can_edit: boolean }> = {};
+      
+      // Initialize with defaults
+      (defaults || []).forEach((f) => {
+        accessMap[f.field_name] = { can_view: f.can_view, can_edit: f.can_edit };
+      });
+
+      // Apply overrides
+      (overrides || []).forEach((f) => {
+        accessMap[f.field_name] = { can_view: f.can_view, can_edit: f.can_edit };
+      });
+
+      setUserAccess(accessMap);
+    } catch (error) {
+      console.error("Error fetching user access:", error);
+    } finally {
+      setLoadingAccess(false);
+    }
+  };
+
+  const handleSaveAccess = async () => {
+    if (!accessUser) return;
+    setSavingAccess(true);
+    try {
+      const updates = Object.entries(userAccess).map(([fieldName, access]) => ({
+        user_id: accessUser.id,
+        field_name: fieldName,
+        can_view: access.can_view,
+        can_edit: access.can_edit,
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from("user_field_access" as any)
+        .upsert(updates, { onConflict: "user_id,field_name" });
+
+      if (error) throw error;
+      toast({ title: "Hak akses berhasil disimpan", variant: "success" as any });
+      setAccessOpen(false);
+    } catch (error: any) {
+      toast({ title: "Gagal menyimpan hak akses", description: error.message, variant: "destructive" });
+    } finally {
+      setSavingAccess(false);
+    }
+  };
+
+  const toggleUserAccess = (fieldKey: string, type: "can_view" | "can_edit") => {
+    setUserAccess((prev) => {
+      const current = prev[fieldKey] || { can_view: false, can_edit: false };
+      const updated = { ...current, [type]: !current[type] };
+      
+      // Dependency logic: if can_edit is true, can_view must be true
+      if (type === "can_edit" && updated.can_edit) {
+        updated.can_view = true;
+      }
+      // If can_view is false, can_edit must be false
+      if (type === "can_view" && !updated.can_view) {
+        updated.can_edit = false;
+      }
+      
+      return { ...prev, [fieldKey]: updated };
+    });
+  };ommission = async () => {
     if (!commUser) return;
     setSavingComm(true);
     const updateData: any = {
@@ -460,14 +564,28 @@ export default function UsersManagement() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            title="Reset Password"
                             onClick={() => {
                               setResetPwUser(u);
-                              setResetPwValue("");
                               setResetPwOpen(true);
                             }}
+                            title="Reset Password"
                           >
-                            <KeyRound className="h-4 w-4 text-amber-600" />
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                        )}
+
+                        {u.role !== "owner" && u.role !== "super_admin" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setAccessUser(u);
+                              setAccessOpen(true);
+                              fetchUserAccess(u.id, u.role || "");
+                            }}
+                            title="Pengaturan Hak Akses"
+                          >
+                            <ShieldCheck className="h-4 w-4 text-blue-600" />
                           </Button>
                         )}
                         {(role === "owner" || role === "super_admin") && u.id !== user?.id && (
@@ -676,6 +794,76 @@ export default function UsersManagement() {
               {savingComm ? "Menyimpan..." : "Simpan Pengaturan"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Access Management Dialog */}
+      <Dialog open={accessOpen} onOpenChange={setAccessOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Pengaturan Hak Akses: {accessUser?.full_name || accessUser?.email}</DialogTitle>
+            <DialogDescription>
+              Tentukan kolom mana yang dapat dilihat dan diubah oleh user ini.
+              Pengaturan ini akan menimpa pengaturan default untuk role {accessUser?.role ? ROLE_LABELS[accessUser.role] : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {loadingAccess ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama Kolom</TableHead>
+                    <TableHead className="text-center">Dapat Melihat</TableHead>
+                    <TableHead className="text-center">Dapat Mengubah</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {FIELDS.map((field) => {
+                    const access = userAccess[field.key] || { can_view: false, can_edit: false };
+                    return (
+                      <TableRow key={field.key}>
+                        <TableCell className="font-medium">{field.label}</TableCell>
+                        <TableCell className="text-center">
+                          <Checkbox 
+                            checked={access.can_view} 
+                            onCheckedChange={() => toggleUserAccess(field.key, "can_view")}
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Checkbox 
+                            checked={access.can_edit} 
+                            onCheckedChange={() => toggleUserAccess(field.key, "can_edit")}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setAccessOpen(false)}>Batal</Button>
+                <Button onClick={handleSaveAccess} disabled={savingAccess}>
+                  {savingAccess ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Simpan Hak Akses
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
