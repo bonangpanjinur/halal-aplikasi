@@ -100,22 +100,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setRole(null);
           setOwnerId(null);
         } finally {
-          if (isMountedRef.current) {
-            setLoading(false);
-            initialized.current = true;
-          }
+          setLoading(false);
+          initialized.current = true;
         }
       }
     );
 
     // Initial session check
     const initSession = async () => {
+      setLoading(true); // Set loading to true at the start of initial session check
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         console.log("Initial session check:", initialSession?.user?.id);
         
         // Only proceed if not already initialized and component is mounted
         if (!initialized.current && isMountedRef.current) {
+
           setSession(initialSession);
           setUser(initialSession?.user ?? null);
           
@@ -132,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isMountedRef.current) {
           setRole(null);
           setOwnerId(null);
+          setLoading(false); // Ensure loading is false on error
         }
       } finally {
         if (isMountedRef.current) {
