@@ -263,7 +263,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
-      <aside className="flex w-56 flex-col border-r bg-sidebar-background">
+      <aside className="flex w-56 flex-col border-r bg-sidebar">
         <div className="flex items-center gap-2.5 border-b px-4 py-4">
           {logoUrl ? (
             <img src={logoUrl} alt="Logo" className="h-6 w-6 rounded object-contain" />

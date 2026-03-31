@@ -82,8 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          // Add a small delay to ensure database is ready
-          setTimeout(() => fetchRole(session.user.id), 100);
+          await fetchRole(session.user.id);
         } else {
           setRole(null);
           setOwnerId(null);
@@ -92,12 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        // Add a small delay to ensure database is ready
-        setTimeout(() => fetchRole(session.user.id), 100);
+        await fetchRole(session.user.id);
       }
       setLoading(false);
     });
