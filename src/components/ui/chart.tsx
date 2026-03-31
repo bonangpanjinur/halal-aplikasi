@@ -163,7 +163,7 @@ const ChartTooltipContent = React.forwardRef<
           {payload.map((item, index) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`;
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
-            const indicatorColor = color || item.payload.fill || item.color;
+            const indicatorColor = color || (item.payload && typeof item.payload === 'object' && 'fill' in item.payload ? (item.payload as any).fill : undefined) || item.color;
 
             return (
               <div

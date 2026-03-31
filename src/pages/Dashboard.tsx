@@ -333,7 +333,7 @@ export default function Dashboard() {
                       if (active && payload && payload.length) {
                         return (
                           <div className="bg-white dark:bg-slate-900 p-3 border rounded-lg shadow-xl">
-                            <p className="text-sm font-bold mb-1">{payload[0].payload.label}</p>
+                            <p className="text-sm font-bold mb-1">{payload[0].payload?.label || "Unknown"}</p>
                             <p className="text-xs text-primary font-medium">{payload[0].value} Entri</p>
                           </div>
                         );
