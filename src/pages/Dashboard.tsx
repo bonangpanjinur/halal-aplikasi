@@ -105,112 +105,105 @@ export default function Dashboard() {
       const isSuperAdmin = role === "super_admin";
       const isOwner = role === "owner";
 
-      // 1. Fetch Basic Stats - Only fetch necessary fields
-      let entriesQuery = supabase.from("data_entries").select("id, status", { count: "exact" });
+      // 1. Parallelize all main queries for faster loading
+      const isSuperAdmin = role === "super_admin";
+      const isOwner = role === "owner";
+
+      let entriesQuery = supabase.from("data_entries").select("id, status, group_id, groups(name)", { count: "exact" });
       if (!isSuperAdmin && !isOwner && user) entriesQuery = entriesQuery.eq("created_by", user.id);
+
+      let usersCountQuery;
+      if (isSuperAdmin) {
+        usersCountQuery = supabase.from("profiles").select("id", { count: "exact", head: true });
+      } else if (isOwner && user) {
+        usersCountQuery = supabase.from("profiles").select("id", { count: "exact", head: true }).eq("owner_id", user.id);
+      } else {
+        usersCountQuery = Promise.resolve({ count: 0 });
+      }
+
+      const [
+        entriesRes,
+        groupsRes,
+        linksRes,
+        recentRes
+      ] = await Promise.all([
+        entriesQuery,
+        supabase.from("groups").select("id", { count: "exact", head: true }),
+        supabase.from("shared_links").select("id", { count: "exact", head: true }).eq("user_id", user?.id ?? ""),
+        supabase.from("data_entries")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(5)
+          .match(!isSuperAdmin && !isOwner && user ? { created_by: user.id } : {})
+      ]);
+
+      const { data: allEntries, count: entriesCount } = entriesRes;
+      const { count: groupsCount } = groupsRes;
+      const { count: linksCount } = linksRes;
+      const { data: recent } = recentRes;
       
-      const { data: allEntries, count: entriesCount } = await entriesQuery;
-      
+      // Fetch users count separately as it depends on role logic
+      const { count: usersCount } = await usersCountQuery;
+
       if (abortController.signal.aborted) return;
-      
-      // Server-side aggregation would be better, but for now optimize client-side
+
+      // 2. Process data in one go
       let nibCount = 0;
       let sertifikatCount = 0;
+      const statusCounts: Record<string, number> = {};
+      const groupCounts: Record<string, { name: string; count: number }> = {};
+
       if (allEntries) {
-        nibCount = allEntries.filter(e => e.status === "nib_selesai").length;
-        sertifikatCount = allEntries.filter(e => e.status === "sertifikat_selesai").length;
-      }
+        allEntries.forEach((e: any) => {
+          // Stats
+          if (e.status === "nib_selesai") nibCount++;
+          if (e.status === "sertifikat_selesai") sertifikatCount++;
+          
+          // Status Chart
+          statusCounts[e.status] = (statusCounts[e.status] || 0) + 1;
+          
+          // Group Chart
+          const gid = e.group_id;
+          if (gid) {
+            if (!groupCounts[gid]) groupCounts[gid] = { name: e.groups?.name || "Tanpa Group", count: 0 };
+            groupCounts[gid].count++;
+          }
+        });
 
-      if (abortController.signal.aborted) return;
-      
-      const { count: groupsCount } = await supabase.from("groups").select("id", { count: "exact", head: true });
-      
-      let usersCount = 0;
-      if (isSuperAdmin) {
-        const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true });
-        usersCount = count ?? 0;
-      } else if (isOwner && user) {
-        const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("owner_id", user.id);
-        usersCount = count ?? 0;
-      }
+        // Update Stats
+        setStats({
+          groups: groupsCount ?? 0,
+          entries: entriesCount ?? 0,
+          users: usersCount ?? 0,
+          links: linksCount ?? 0,
+          nib_selesai: nibCount,
+          sertifikat_selesai: sertifikatCount,
+        });
 
-      if (abortController.signal.aborted) return;
-      
-      const { count: linksCount } = await supabase
-        .from("shared_links")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user?.id ?? "");
-
-      if (abortController.signal.aborted) return;
-      
-      setStats({
-        groups: groupsCount ?? 0,
-        entries: entriesCount ?? 0,
-        users: usersCount,
-        links: linksCount ?? 0,
-        nib_selesai: nibCount,
-        sertifikat_selesai: sertifikatCount,
-      });
-
-      if (abortController.signal.aborted) return;
-      
-      // 1.1 Calculate KPIs
-      if (allEntries) {
-        const completed = allEntries.filter(e => e.status === 'sertifikat_selesai');
+        // Update KPIs
+        const completed = allEntries.filter((e: any) => e.status === 'sertifikat_selesai');
         const total = allEntries.length;
-        const revisions = allEntries.filter(e => e.status === 'revisi').length;
-        
-        // Time to Certificate (TTC) - placeholder for now
-        const ttc = 24.5; // Target < 30 days
-        const conversion = total > 0 ? (completed.length / total) * 100 : 0;
-        const errorRate = total > 0 ? (revisions / total) * 100 : 0;
+        const revisions = allEntries.filter((e: any) => e.status === 'revisi').length;
+        setKpis({ 
+          ttc: 24.5, 
+          conversion: total > 0 ? (completed.length / total) * 100 : 0, 
+          errorRate: total > 0 ? (revisions / total) * 100 : 0 
+        });
 
-        setKpis({ ttc, conversion, errorRate });
-      }
-
-      // 2. Status Chart Data
-      if (allEntries) {
-        const counts: Record<string, number> = {};
-        allEntries.forEach((e) => { counts[e.status] = (counts[e.status] || 0) + 1; });
+        // Update Status Chart
         setStatusData(
-          Object.entries(counts).map(([status, count]) => ({
+          Object.entries(statusCounts).map(([status, count]) => ({
             status,
             label: STATUS_LABELS[status] || status,
             count,
             fill: STATUS_COLORS[status] || "#94a3b8",
           }))
         );
-      }
 
-      if (abortController.signal.aborted) return;
-      
-      // 3. Group Chart Data
-      let groupQuery = supabase.from("data_entries").select("group_id, groups(name)");
-      if (!isSuperAdmin && !isOwner && user) groupQuery = groupQuery.eq("created_by", user.id);
-      const { data: entryGroups } = await groupQuery;
-      if (entryGroups) {
-        const groupCounts: Record<string, { name: string; count: number }> = {};
-        entryGroups.forEach((e: any) => {
-          const gid = e.group_id;
-          if (!groupCounts[gid]) groupCounts[gid] = { name: e.groups?.name || "Tanpa Group", count: 0 };
-          groupCounts[gid].count++;
-        });
+        // Update Group Chart
         setGroupData(Object.values(groupCounts).sort((a, b) => b.count - a.count).slice(0, 5));
       }
 
-      if (abortController.signal.aborted) return;
-      
-      // 4. Recent Entries
-      let recentQuery = supabase
-        .from("data_entries")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5);
-      if (!isSuperAdmin && !isOwner && user) recentQuery = recentQuery.eq("created_by", user.id);
-      const { data: recent } = await recentQuery;
-      
-      if (abortController.signal.aborted) return;
-      
       setRecentEntries(recent ?? []);
       setLoading(false);
     };

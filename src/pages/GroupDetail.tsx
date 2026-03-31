@@ -117,34 +117,37 @@ export default function GroupDetail() {
   const fetchEntries = async (page: number = 1) => {
     if (!groupId) return;
     
-    // Get total count first
-    const { count } = await supabase
-      .from("data_entries")
-      .select("id", { count: "exact", head: true })
-      .eq("group_id", groupId);
-    
-    setTotalEntries(count ?? 0);
-    
     // Calculate offset for pagination
     const offset = (page - 1) * ITEMS_PER_PAGE;
     
-    let query = supabase
-      .from("data_entries")
-      .select("*")
-      .eq("group_id", groupId)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + ITEMS_PER_PAGE - 1);
+    // Parallelize total count and paginated data fetching
+    const [countRes, dataRes] = await Promise.all([
+      supabase
+        .from("data_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("group_id", groupId),
+      supabase
+        .from("data_entries")
+        .select("*")
+        .eq("group_id", groupId)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + ITEMS_PER_PAGE - 1)
+    ]);
     
-    // Let RLS handle access control - no client-side filter needed
-    const { data } = await query;
-    setEntries(data ?? []);
-    // Fetch photo counts
-    if (data && data.length > 0) {
+    const totalCount = countRes.count ?? 0;
+    const data = dataRes.data ?? [];
+    
+    setTotalEntries(totalCount);
+    setEntries(data);
+    
+    // Fetch photo counts for the current page only
+    if (data.length > 0) {
       const entryIds = data.map((e) => e.id);
       const { data: photos } = await supabase
         .from("entry_photos" as any)
         .select("entry_id, photo_type")
         .in("entry_id", entryIds);
+        
       const counts: Record<string, { produk: number; verifikasi: number }> = {};
       (photos ?? []).forEach((p: any) => {
         if (!counts[p.entry_id]) counts[p.entry_id] = { produk: 0, verifikasi: 0 };
