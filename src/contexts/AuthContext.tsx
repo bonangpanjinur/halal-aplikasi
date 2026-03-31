@@ -34,45 +34,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchRole = async (userId: string) => {
     try {
-      // Fetch role from user_roles with retry logic
-      let { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .single();
+      // Set a timeout for the entire fetch operation to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Auth fetch timeout")), 5000)
+      );
 
-      // If we get a 406 error (not found), it might be a timing issue
-      // Try again after a short delay
-      if (roleError && roleError.code === "PGRST116") {
-        console.warn("Role not found on first attempt, retrying...");
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const retry = await supabase
+      const fetchOperation = (async () => {
+        // Fetch role from user_roles with retry logic
+        let { data: roleData, error: roleError } = await supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", userId)
           .single();
-        roleData = retry.data;
-        roleError = retry.error;
-      }
 
-      if (roleError) {
-        console.error("Error fetching role:", roleError);
-      }
-      setRole(roleData?.role ?? null);
+        // If we get a 406 error (not found), it might be a timing issue
+        if (roleError && roleError.code === "PGRST116") {
+          console.warn("Role not found on first attempt, retrying...");
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const retry = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userId)
+            .single();
+          roleData = retry.data;
+          roleError = retry.error;
+        }
 
-      // Fetch owner_id from profiles
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("owner_id")
-        .eq("id", userId)
-        .single();
+        if (roleError) {
+          console.error("Error fetching role:", roleError);
+        }
+        setRole(roleData?.role ?? null);
 
-      if (profileError) {
-        console.error("Error fetching profile:", profileError);
-      }
-      setOwnerId(profileData?.owner_id ?? null);
+        // Fetch owner_id from profiles
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("owner_id")
+          .eq("id", userId)
+          .single();
+
+        if (profileError) {
+          console.error("Error fetching profile:", profileError);
+        }
+        setOwnerId(profileData?.owner_id ?? null);
+      })();
+
+      await Promise.race([fetchOperation, timeoutPromise]);
     } catch (error) {
       console.error("Unexpected error in fetchRole:", error);
+      // Ensure we don't leave states in limbo
+      setRole(null);
+      setOwnerId(null);
     }
   };
 
@@ -92,12 +103,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchRole(session.user.id);
+      try {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          await fetchRole(session.user.id);
+        }
+      } catch (error) {
+        console.error("Session initialization error:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
