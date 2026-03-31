@@ -75,63 +75,92 @@ const UsersManagement = () => {
     if (!user) return;
     setLoading(true);
     try {
+      // 1. Fetch owners if needed
       if (owners.length === 0) {
-        const { data: ownerProfiles } = await supabase
+        const { data: rolesData, error: rolesError } = await supabase
           .from("user_roles")
-          .select("user_id, profiles:user_id(id, full_name, email)")
+          .select("user_id")
           .eq("role", "owner");
         
-        const ownerList = (ownerProfiles || []).map((op: any) => ({
-          id: op.profiles?.id,
-          full_name: op.profiles?.full_name,
-          email: op.profiles?.email,
-          role: "owner" as AppRole
-        })).filter(o => o.id);
-        setOwners(ownerList);
+        if (rolesError) throw rolesError;
+
+        if (rolesData && rolesData.length > 0) {
+          const ownerIds = rolesData.map(r => r.user_id);
+          const { data: profilesData, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, full_name, email")
+            .in("id", ownerIds);
+          
+          if (profilesError) throw profilesError;
+
+          const ownerList = (profilesData || []).map((p: any) => ({
+            id: p.id,
+            full_name: p.full_name,
+            email: p.email,
+            role: "owner" as AppRole,
+            owner_id: null
+          }));
+          setOwners(ownerList);
+        }
       }
 
-      let query = supabase
+      // 2. Fetch profiles with pagination and filters
+      let profileQuery = supabase
         .from("profiles")
-        .select(`
-          *,
-          user_roles!inner(role)
-        `, { count: "exact" });
+        .select("*", { count: "exact" });
 
       if (role === "owner") {
-        query = query.or(`id.eq.${user.id},owner_id.eq.${user.id}`);
-      }
-
-      if (filterRole !== "all") {
-        query = query.eq("user_roles.role", filterRole);
+        profileQuery = profileQuery.or(`id.eq.${user.id},owner_id.eq.${user.id}`);
       }
 
       if (filterOwner !== "all") {
-        query = query.eq("owner_id", filterOwner);
+        profileQuery = profileQuery.eq("owner_id", filterOwner);
       }
 
       if (searchQuery) {
-        query = query.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
+        profileQuery = profileQuery.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
       }
 
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
       
-      const { data, count, error } = await query
+      const { data: profiles, count, error: profilesError } = await profileQuery
         .order("full_name", { ascending: true })
         .range(from, to);
 
-      if (error) throw error;
+      if (profilesError) throw profilesError;
 
-      const merged: UserWithRole[] = (data || []).map((p: any) => ({
-        id: p.id,
-        full_name: p.full_name,
-        email: p.email,
-        role: p.user_roles[0]?.role ?? null,
-        owner_id: p.owner_id ?? null,
-      }));
+      if (profiles && profiles.length > 0) {
+        // 3. Fetch roles for these profiles
+        const userIds = profiles.map(p => p.id);
+        const { data: rolesData, error: rolesError } = await supabase
+          .from("user_roles")
+          .select("user_id, role")
+          .in("user_id", userIds);
+        
+        if (rolesError) throw rolesError;
 
-      setUsers(merged);
-      setTotalCount(count || 0);
+        const roleMap = new Map(rolesData?.map(r => [r.user_id, r.role]));
+
+        let merged: UserWithRole[] = profiles.map((p: any) => ({
+          id: p.id,
+          full_name: p.full_name,
+          email: p.email,
+          role: roleMap.get(p.id) ?? null,
+          owner_id: p.owner_id ?? null,
+        }));
+
+        // 4. Apply role filter client-side if needed (since we can't easily join)
+        if (filterRole !== "all") {
+          merged = merged.filter(u => u.role === filterRole);
+        }
+
+        setUsers(merged);
+        setTotalCount(count || 0);
+      } else {
+        setUsers([]);
+        setTotalCount(0);
+      }
     } catch (error: any) {
       console.error("Error fetching users:", error);
       toast({
@@ -188,10 +217,6 @@ const UsersManagement = () => {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      // In a real app, you might want to call a Supabase Edge Function 
-      // to delete the user from auth.users as well.
-      // For now, we'll just remove their role and profile data.
-      
       const { error: roleError } = await supabase
         .from("user_roles")
         .delete()

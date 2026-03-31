@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Set a timeout for the entire fetch operation to prevent infinite loading
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Auth fetch timeout")), 5000)
+        setTimeout(() => reject(new Error("Auth fetch timeout")), 15000)
       );
 
       const fetchOperation = (async () => {

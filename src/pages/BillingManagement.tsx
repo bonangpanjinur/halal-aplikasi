@@ -1,23 +1,40 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "@/hooks/use-toast";
-import { CreditCard, Receipt, Users, Save, Loader2, Edit, ChevronDown, ChevronUp } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Plus, Receipt, Download, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+import { id } from "date-fns/locale";
 
 interface OwnerRate {
   owner_id: string;
-  owner_name: string | null;
-  owner_email: string | null;
+  owner_name: string;
+  owner_email: string;
   fee_per_certificate: number;
 }
 
@@ -25,313 +42,413 @@ interface Invoice {
   id: string;
   owner_id: string;
   period: string;
-  status: string;
+  total_certificates: number;
+  fee_per_certificate: number;
   total_amount: number;
-  created_at: string;
-  issued_at: string | null;
-  paid_at: string | null;
-  notes: string | null;
-  owner_name?: string;
-  owner_email?: string;
-}
-
-interface InvoiceItem {
-  id: string;
-  amount: number;
-  description: string | null;
-  entry_id: string | null;
+  status: "unpaid" | "paid";
   created_at: string;
 }
 
-export default function BillingManagement() {
-  const { role } = useAuth();
+const BillingManagement = () => {
+  const { user, role } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
   const [owners, setOwners] = useState<OwnerRate[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [invoiceItems, setInvoiceItems] = useState<Record<string, InvoiceItem[]>>({});
-  const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  
+  // New Rate Dialog State
+  const [isRateDialogOpen, setIsRateDialogOpen] = useState(false);
+  const [selectedOwner, setSelectedOwner] = useState("");
+  const [fee, setFee] = useState("");
 
-  // Edit rate dialog
-  const [editTarget, setEditTarget] = useState<OwnerRate | null>(null);
-  const [editRate, setEditRate] = useState(0);
-  const [savingRate, setSavingRate] = useState(false);
+  // New Invoice Dialog State
+  const [isInvDialogOpen, setIsInvDialogOpen] = useState(false);
+  const [invOwner, setInvOwner] = useState("");
+  const [invPeriod, setInvPeriod] = useState(format(new Date(), "yyyy-MM"));
 
-  const formatRp = (n: number) =>
-    new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
+  useEffect(() => {
+    if (user && role === "super_admin") {
+      fetchData();
+    }
+  }, [user, role]);
 
   const fetchData = async () => {
     setLoading(true);
+    try {
+      // 1. Get owner user IDs
+      const { data: rolesData, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "owner");
+      
+      if (rolesError) throw rolesError;
 
-    // Get all owners via user_roles join
-    const { data: ownerProfiles } = await supabase
-      .from("user_roles")
-      .select("user_id, profiles:user_id!inner(id, full_name, email)")
-      .eq("role", "owner") as any;
+      let ownerList: OwnerRate[] = [];
+      if (rolesData && rolesData.length > 0) {
+        const ownerIds = rolesData.map(r => r.user_id);
+        
+        // 2. Get profiles for these IDs
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", ownerIds);
+        
+        if (profilesError) throw profilesError;
 
-    // Get all billing rates
-    const { data: rates } = await supabase.from("owner_billing_rates").select("*");
-    const rateMap = new Map((rates ?? []).map((r: any) => [r.owner_id, r.fee_per_certificate]));
+        // 3. Get billing rates
+        const { data: rates, error: ratesError } = await supabase
+          .from("owner_billing_rates")
+          .select("*");
+        
+        if (ratesError) throw ratesError;
 
-    const ownerList: OwnerRate[] = (ownerProfiles ?? []).map((o: any) => ({
-      owner_id: o.profiles.id,
-      owner_name: o.profiles.full_name,
-      owner_email: o.profiles.email,
-      fee_per_certificate: rateMap.get(o.profiles.id) ?? 0,
-    }));
-    setOwners(ownerList);
+        const rateMap = new Map((rates ?? []).map((r: any) => [r.owner_id, r.fee_per_certificate]));
 
-    // Get all invoices
-    const { data: invData } = await supabase
-      .from("owner_invoices")
-      .select("*")
-      .order("period", { ascending: false });
+        ownerList = (profilesData ?? []).map((p: any) => ({
+          owner_id: p.id,
+          owner_name: p.full_name || "Unknown",
+          owner_email: p.email || "No Email",
+          fee_per_certificate: rateMap.get(p.id) ?? 0,
+        }));
+      }
+      setOwners(ownerList);
 
-    const profileMap = new Map(ownerList.map((o) => [o.owner_id, { name: o.owner_name, email: o.owner_email }]));
-    setInvoices(
-      (invData ?? []).map((inv: any) => ({
-        ...inv,
-        owner_name: profileMap.get(inv.owner_id)?.name,
-        owner_email: profileMap.get(inv.owner_id)?.email,
-      }))
-    );
+      // 4. Get all invoices
+      const { data: invData, error: invError } = await supabase
+        .from("owner_invoices")
+        .select("*")
+        .order("period", { ascending: false });
+      
+      if (invError) throw invError;
 
-    setLoading(false);
+      setInvoices(invData || []);
+    } catch (error: any) {
+      console.error("Error fetching billing data:", error);
+      toast({
+        title: "Error",
+        description: "Gagal mengambil data penagihan",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
-
-  useEffect(() => {
-    if (role !== "super_admin") return;
-    fetchData();
-  }, [role]);
 
   const handleSaveRate = async () => {
-    if (!editTarget) return;
-    setSavingRate(true);
-    const { error } = await supabase
-      .from("owner_billing_rates")
-      .upsert(
-        { owner_id: editTarget.owner_id, fee_per_certificate: editRate, updated_at: new Date().toISOString() },
-        { onConflict: "owner_id" }
-      );
-    setSavingRate(false);
-    if (error) {
-      toast({ title: "Gagal menyimpan tarif", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Tarif berhasil disimpan" });
-      setEditTarget(null);
+    if (!selectedOwner || !fee) return;
+
+    try {
+      const { error } = await supabase
+        .from("owner_billing_rates")
+        .upsert({
+          owner_id: selectedOwner,
+          fee_per_certificate: parseInt(fee),
+          updated_at: new Date().toISOString(),
+          updated_by: user?.id
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Berhasil",
+        description: "Tarif berhasil disimpan",
+      });
+      setIsRateDialogOpen(false);
       fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
-  const handleChangeStatus = async (invoice: Invoice, newStatus: string) => {
-    const updates: any = { status: newStatus, updated_at: new Date().toISOString() };
-    if (newStatus === "issued") updates.issued_at = new Date().toISOString();
-    if (newStatus === "paid") updates.paid_at = new Date().toISOString();
+  const handleGenerateInvoice = async () => {
+    if (!invOwner || !invPeriod) return;
 
-    const { error } = await supabase.from("owner_invoices").update(updates).eq("id", invoice.id);
-    if (error) {
-      toast({ title: "Gagal mengubah status", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: `Status invoice diubah ke ${newStatus}` });
+    try {
+      // 1. Get total certificates for this owner in this period
+      // A certificate is "done" when status is 'sertifikat_selesai'
+      const { count, error: countError } = await supabase
+        .from("data_entries")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "sertifikat_selesai")
+        .filter("updated_at", "gte", `${invPeriod}-01T00:00:00Z`)
+        .filter("updated_at", "lt", format(new Date(new Date(invPeriod + "-01").setMonth(new Date(invPeriod + "-01").getMonth() + 1)), "yyyy-MM-dd") + "T00:00:00Z");
+
+      if (countError) throw countError;
+
+      const owner = owners.find(o => o.owner_id === invOwner);
+      if (!owner) throw new Error("Owner tidak ditemukan");
+
+      const totalCertificates = count || 0;
+      const totalAmount = totalCertificates * owner.fee_per_certificate;
+
+      const { error: invError } = await supabase
+        .from("owner_invoices")
+        .insert({
+          owner_id: invOwner,
+          period: invPeriod,
+          total_certificates: totalCertificates,
+          fee_per_certificate: owner.fee_per_certificate,
+          total_amount: totalAmount,
+          status: "unpaid"
+        });
+
+      if (invError) throw invError;
+
+      toast({
+        title: "Berhasil",
+        description: "Invoice berhasil dibuat",
+      });
+      setIsInvDialogOpen(false);
       fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
-  const toggleInvoiceItems = async (invoiceId: string) => {
-    const next = new Set(expandedInvoices);
-    if (next.has(invoiceId)) {
-      next.delete(invoiceId);
-      setExpandedInvoices(next);
-      return;
+  const handleUpdateStatus = async (id: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === "paid" ? "unpaid" : "paid";
+      const { error } = await supabase
+        .from("owner_invoices")
+        .update({ status: newStatus })
+        .eq("id", id);
+
+      if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
-    if (!invoiceItems[invoiceId]) {
-      const { data } = await supabase
-        .from("owner_invoice_items")
-        .select("*")
-        .eq("invoice_id", invoiceId)
-        .order("created_at", { ascending: false });
-      setInvoiceItems((prev) => ({ ...prev, [invoiceId]: data ?? [] }));
+  };
+
+  const handleDeleteInvoice = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("owner_invoices")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
-    next.add(invoiceId);
-    setExpandedInvoices(next);
-  };
-
-  const statusColor = (s: string) => {
-    if (s === "paid") return "default";
-    if (s === "issued") return "secondary";
-    return "outline";
-  };
-
-  const statusLabel = (s: string) => {
-    if (s === "paid") return "Lunas";
-    if (s === "issued") return "Terkirim";
-    return "Draft";
-  };
-
-  const nextStatus = (s: string) => {
-    if (s === "draft") return "issued";
-    if (s === "issued") return "paid";
-    return null;
   };
 
   if (role !== "super_admin") {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Hanya Super Admin yang dapat mengakses manajemen penagihan ini.</p>
-      </div>
-    );
+    return <div className="p-8 text-center">Hanya Super Admin yang dapat mengakses halaman ini.</div>;
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Manajemen Penagihan Platform</h1>
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Manajemen Penagihan Owner</h1>
+        <div className="flex gap-2">
+          <Dialog open={isRateDialogOpen} onOpenChange={setIsRateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Atur Tarif
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Atur Tarif per Sertifikat</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Pilih Owner</Label>
+                  <Select value={selectedOwner} onValueChange={setSelectedOwner}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih Owner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {owners.map((o) => (
+                        <SelectItem key={o.owner_id} value={o.owner_id}>
+                          {o.owner_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Tarif (Rp)</Label>
+                  <Input 
+                    type="number" 
+                    value={fee} 
+                    onChange={(e) => setFee(e.target.value)}
+                    placeholder="Contoh: 50000"
+                  />
+                </div>
+                <Button className="w-full" onClick={handleSaveRate}>Simpan</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
-      <Tabs defaultValue="owners">
-        <TabsList className="w-full">
-          <TabsTrigger value="owners" className="flex-1 gap-2">
-            <Users className="h-4 w-4" /> Tarif per Owner
-          </TabsTrigger>
-          <TabsTrigger value="invoices" className="flex-1 gap-2">
-            <Receipt className="h-4 w-4" /> Semua Invoice
-          </TabsTrigger>
-        </TabsList>
+          <Dialog open={isInvDialogOpen} onOpenChange={setIsInvDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Receipt className="h-4 w-4 mr-2" />
+                Buat Invoice
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Generate Invoice Bulanan</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Pilih Owner</Label>
+                  <Select value={invOwner} onValueChange={setInvOwner}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih Owner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {owners.map((o) => (
+                        <SelectItem key={o.owner_id} value={o.owner_id}>
+                          {o.owner_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Periode (YYYY-MM)</Label>
+                  <Input 
+                    type="month" 
+                    value={invPeriod} 
+                    onChange={(e) => setInvPeriod(e.target.value)}
+                  />
+                </div>
+                <Button className="w-full" onClick={handleGenerateInvoice}>Generate</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
 
-        <TabsContent value="owners" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Tarif Platform per Owner</CardTitle>
-              <CardDescription>Atur biaya per sertifikat selesai untuk setiap owner.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
+      <div className="grid gap-8">
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Daftar Tarif Owner</h2>
+          <div className="rounded-md border bg-white">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nama Owner</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Tarif per Sertifikat</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
                   <TableRow>
-                    <TableHead>Owner</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Tarif / Sertifikat</TableHead>
-                    <TableHead className="w-20">Aksi</TableHead>
+                    <TableCell colSpan={3} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Memuat...</TableCell></TableRow>
-                  ) : owners.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Belum ada owner</TableCell></TableRow>
-                  ) : owners.map((o) => (
+                ) : owners.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-8">Tidak ada data owner.</TableCell>
+                  </TableRow>
+                ) : (
+                  owners.map((o) => (
                     <TableRow key={o.owner_id}>
-                      <TableCell className="font-medium">{o.owner_name || "Tanpa Nama"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{o.owner_email}</TableCell>
-                      <TableCell className="font-mono">{formatRp(o.fee_per_certificate)}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => { setEditTarget(o); setEditRate(o.fee_per_certificate); }}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+                      <TableCell className="font-medium">{o.owner_name}</TableCell>
+                      <TableCell>{o.owner_email}</TableCell>
+                      <TableCell>Rp {o.fee_per_certificate.toLocaleString()}</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="invoices" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Semua Invoice Owner</CardTitle>
-              <CardDescription>Kelola status invoice: draft → terkirim → lunas</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Owner</TableHead>
-                    <TableHead>Periode</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-32">Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Memuat...</TableCell></TableRow>
-                  ) : invoices.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Belum ada invoice</TableCell></TableRow>
-                  ) : invoices.map((inv) => (
-                    <Collapsible key={inv.id} open={expandedInvoices.has(inv.id)} onOpenChange={() => toggleInvoiceItems(inv.id)} asChild>
-                      <>
-                        <CollapsibleTrigger asChild>
-                          <TableRow className="cursor-pointer hover:bg-muted/50">
-                            <TableCell className="font-medium">{inv.owner_name || inv.owner_id.slice(0, 8)}</TableCell>
-                            <TableCell>{inv.period}</TableCell>
-                            <TableCell className="font-mono">{formatRp(inv.total_amount)}</TableCell>
-                            <TableCell><Badge variant={statusColor(inv.status)}>{statusLabel(inv.status)}</Badge></TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                {nextStatus(inv.status) && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => { e.stopPropagation(); handleChangeStatus(inv, nextStatus(inv.status)!); }}
-                                  >
-                                    {nextStatus(inv.status) === "issued" ? "Kirim" : "Lunasi"}
-                                  </Button>
-                                )}
-                                {expandedInvoices.has(inv.id) ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent asChild>
-                          <TableRow>
-                            <TableCell colSpan={5} className="bg-muted/30 p-4">
-                              <p className="text-xs font-medium text-muted-foreground mb-2">Detail Item Invoice</p>
-                              {(invoiceItems[inv.id] ?? []).length === 0 ? (
-                                <p className="text-sm text-muted-foreground">Tidak ada item</p>
-                              ) : (
-                                <div className="space-y-1">
-                                  {(invoiceItems[inv.id] ?? []).map((item) => (
-                                    <div key={item.id} className="flex justify-between text-sm">
-                                      <span>{item.description || "Item"}</span>
-                                      <span className="font-mono">{formatRp(item.amount)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        </CollapsibleContent>
-                      </>
-                    </Collapsible>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Edit Rate Dialog */}
-      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ubah Tarif Platform</DialogTitle>
-            <DialogDescription>
-              Atur biaya per sertifikat selesai untuk {editTarget?.owner_name || editTarget?.owner_email}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Label>Biaya per Sertifikat (Rp)</Label>
-            <Input type="number" value={editRate} onChange={(e) => setEditRate(parseInt(e.target.value) || 0)} min={0} step={1000} className="font-mono" />
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditTarget(null)}>Batal</Button>
-            <Button onClick={handleSaveRate} disabled={savingRate} className="gap-2">
-              {savingRate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Simpan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Riwayat Invoice</h2>
+          <div className="rounded-md border bg-white">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Periode</TableHead>
+                  <TableHead>Owner</TableHead>
+                  <TableHead>Total Sertifikat</TableHead>
+                  <TableHead>Total Tagihan</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : invoices.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">Belum ada invoice.</TableCell>
+                  </TableRow>
+                ) : (
+                  invoices.map((inv) => {
+                    const owner = owners.find(o => o.owner_id === inv.owner_id);
+                    return (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-medium">{inv.period}</TableCell>
+                        <TableCell>{owner?.owner_name || "Unknown"}</TableCell>
+                        <TableCell>{inv.total_certificates}</TableCell>
+                        <TableCell>Rp {inv.total_amount.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Button 
+                            variant={inv.status === "paid" ? "secondary" : "outline"}
+                            size="sm"
+                            className={inv.status === "paid" ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"}
+                            onClick={() => handleUpdateStatus(inv.id, inv.status)}
+                          >
+                            {inv.status === "paid" ? "Lunas" : "Belum Bayar"}
+                          </Button>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-destructive"
+                              onClick={() => handleDeleteInvoice(inv.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      </div>
     </div>
   );
-}
+};
+
+export default BillingManagement;
