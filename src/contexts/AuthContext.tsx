@@ -70,20 +70,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Handle auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        console.log("Auth state change:", event, currentSession?.user?.id);
-        
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        
-        if (currentSession?.user) {
-          await fetchRole(currentSession.user.id);
-        } else {
-          setRole(null);
-          setOwnerId(null);
+        try {
+          console.log("Auth state change:", event, currentSession?.user?.id);
+          
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          
+          if (currentSession?.user) {
+            await fetchRole(currentSession.user.id);
+          } else {
+            setRole(null);
+            setOwnerId(null);
+          }
+        } catch (error) {
+          console.error("Error in auth state change:", error);
+        } finally {
+          setLoading(false);
+          initialized.current = true;
         }
-        
-        setLoading(false);
-        initialized.current = true;
       }
     );
 

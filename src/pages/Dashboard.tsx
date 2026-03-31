@@ -407,10 +407,12 @@ export default function Dashboard() {
                     cursor={{ fill: '#f8fafc' }}
                     content={({ active, payload }) => {
                       if (active && payload && payload.length && payload[0]) {
+                        const item = payload[0];
+                        const label = item?.payload?.label || item?.name || "Unknown";
                         return (
                           <div className="bg-white dark:bg-slate-900 p-3 border rounded-lg shadow-xl">
-                            <p className="text-sm font-bold mb-1">{payload[0].payload?.label || "Unknown"}</p>
-                            <p className="text-xs text-primary font-medium">{payload[0].value} Entri</p>
+                            <p className="text-sm font-bold mb-1">{label}</p>
+                            <p className="text-xs text-primary font-medium">{item.value} Entri</p>
                           </div>
                         );
                       }
