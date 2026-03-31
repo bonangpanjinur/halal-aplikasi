@@ -102,9 +102,6 @@ export default function Dashboard() {
       if (abortController.signal.aborted) return;
       
       setLoading(true);
-      const isSuperAdmin = role === "super_admin";
-      const isOwner = role === "owner";
-
       // 1. Parallelize all main queries for faster loading
       const isSuperAdmin = role === "super_admin";
       const isOwner = role === "owner";
