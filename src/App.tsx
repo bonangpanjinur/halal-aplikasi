@@ -27,6 +27,9 @@ import OwnerPaymentMethods from "@/pages/OwnerPaymentMethods";
 import UmkmDashboard from "@/pages/UmkmDashboard";
 import Register from "@/pages/Register";
 import Pricing from "@/pages/Pricing";
+import WorkflowConfiguration from "@/pages/WorkflowConfiguration";
+import DocumentTemplates from "@/pages/DocumentTemplates";
+import UserRatings from "@/pages/UserRatings";
 import NotFound from "@/pages/NotFound";
 import { ReactNode } from "react";
 
@@ -82,6 +85,9 @@ const AppRoutes = () => (
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute allowedRoles={["super_admin", "owner"]}><AppSettings /></ProtectedRoute>} />
       <Route path="/umkm" element={<ProtectedRoute allowedRoles={["umkm"]}><UmkmDashboard /></ProtectedRoute>} />
+      <Route path="/workflow-config" element={<ProtectedRoute allowedRoles={["super_admin"]}><WorkflowConfiguration /></ProtectedRoute>} />
+      <Route path="/document-templates" element={<ProtectedRoute allowedRoles={["super_admin", "owner"]}><DocumentTemplates /></ProtectedRoute>} />
+      <Route path="/ratings" element={<ProtectedRoute><UserRatings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
     <PwaInstallPrompt />

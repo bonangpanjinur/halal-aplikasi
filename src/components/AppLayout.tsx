@@ -21,6 +21,9 @@ import {
   Bell,
   CreditCard,
   MoreVertical,
+  Workflow,
+  FileText,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -37,6 +40,9 @@ const SUPER_NAV = [
   { label: "Share Link", icon: Link2, path: "/share" },
   { label: "Dashboard Komisi", icon: Wallet, path: "/commission-dashboard" },
   { label: "Penagihan", icon: CreditCard, path: "/billing-management" },
+  { label: "Workflow Config", icon: Workflow, path: "/workflow-config" },
+  { label: "Template Dokumen", icon: FileText, path: "/document-templates" },
+  { label: "Rating & Feedback", icon: Star, path: "/ratings" },
   { label: "Pengaturan", icon: Settings, path: "/settings" },
 ];
 
@@ -47,6 +53,8 @@ const OWNER_NAV = [
   { label: "Share Link", icon: Link2, path: "/share" },
   { label: "Komisi", icon: Wallet, path: "/komisi" },
   { label: "Paket & Billing", icon: CreditCard, path: "/billing" },
+  { label: "Template Dokumen", icon: FileText, path: "/document-templates" },
+  { label: "Rating & Feedback", icon: Star, path: "/ratings" },
   { label: "Pengaturan", icon: Settings, path: "/settings" },
 ];
 
