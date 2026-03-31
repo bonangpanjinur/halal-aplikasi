@@ -256,7 +256,7 @@ export default function UserRatings() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Rating < 3 Bintang</p>
+                  <p className="text-sm text-muted-foreground">Rating &lt; 3 Bintang</p>
                   <p className="text-2xl font-bold">{analytics.rating_1_count + analytics.rating_2_count}</p>
                 </div>
                 <Star className="h-8 w-8 text-red-500 opacity-20" />
