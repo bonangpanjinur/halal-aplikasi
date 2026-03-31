@@ -86,20 +86,20 @@ export default function AppSettings() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
-  const [savingRates, setSavingRates] = useState(false);
+  // const [savingRates, setSavingRates] = useState(false);
   const [savingSiapInput, setSavingSiapInput] = useState(false);
   const [defaultPlatformFee, setDefaultPlatformFee] = useState(0);
   const [savingDefaultFee, setSavingDefaultFee] = useState(false);
 
   const [siapInputFields, setSiapInputFields] = useState<string[]>(["nama", "ktp", "nib", "foto_produk", "foto_verifikasi"]);
-  const [rates, setRates] = useState<Record<string, number>>({
-    super_admin: 0,
-    owner: 0,
-    admin: 5000,
-    admin_input: 0,
-    lapangan: 10000,
-    nib: 5000,
-  });
+  // const [rates, setRates] = useState<Record<string, number>>({
+  //   super_admin: 0,
+  //   owner: 0,
+  //   admin: 5000,
+  //   admin_input: 0,
+  //   lapangan: 10000,
+  //   nib: 5000,
+  // });
 
   const [owners, setOwners] = useState<OwnerProfile[]>([]);
   const [loadingOwners, setLoadingOwners] = useState(false);
@@ -147,23 +147,23 @@ export default function AppSettings() {
     load();
   }, []);
 
-  useEffect(() => {
-    const loadRates = async () => {
-      let query = supabase.from("commission_rates").select("role, amount_per_entry");
-      if (isOwner && user) {
-        query = query.eq("owner_id", user.id);
-      } else {
-        query = query.is("owner_id", null);
-      }
-      const { data } = await query;
-      if (data) {
-        const r: Record<string, number> = {};
-        data.forEach((row: any) => { r[row.role] = row.amount_per_entry; });
-        setRates(r);
-      }
-    };
-    loadRates();
-  }, [isOwner, user]);
+  // useEffect(() => {
+  //   const loadRates = async () => {
+  //     let query = supabase.from("commission_rates").select("role, amount_per_entry");
+  //     if (isOwner && user) {
+  //       query = query.eq("owner_id", user.id);
+  //     } else {
+  //       query = query.is("owner_id", null);
+  //     }
+  //     const { data } = await query;
+  //     if (data) {
+  //       const r: Record<string, number> = {};
+  //       data.forEach((row: any) => { r[row.role] = row.amount_per_entry; });
+  //       setRates(r);
+  //     }
+  //   };
+  //   loadRates();
+  // }, [isOwner, user]);
 
   const fetchOwners = async () => {
     if (!isSuperAdmin) return;
@@ -401,12 +401,12 @@ export default function AppSettings() {
         </div>
       </div>
 
-      <Tabs defaultValue={isOwner ? "komisi" : "tampilan"} className="space-y-6">
+        <Tabs defaultValue={isOwner ? "pembayaran" : "tampilan"} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto p-1 bg-muted/50">
           {!isOwner && <TabsTrigger value="tampilan" className="gap-2 py-2.5"><Palette className="h-4 w-4" /> Tampilan</TabsTrigger>}
           {!isOwner && <TabsTrigger value="akses" className="gap-2 py-2.5"><ShieldCheck className="h-4 w-4" /> Hak Akses</TabsTrigger>}
           {!isOwner && <TabsTrigger value="siap_input" className="gap-2 py-2.5"><ClipboardCheck className="h-4 w-4" /> Siap Input</TabsTrigger>}
-          {isOwner && <TabsTrigger value="komisi" className="gap-2 py-2.5"><Wallet className="h-4 w-4" /> Komisi Tim</TabsTrigger>}
+          {/* {isOwner && <TabsTrigger value="komisi" className="gap-2 py-2.5"><Wallet className="h-4 w-4" /> Komisi Tim</TabsTrigger>} */}
           {isSuperAdmin && <TabsTrigger value="tarif_platform" className="gap-2 py-2.5"><Building2 className="h-4 w-4" /> Tarif Platform Owner</TabsTrigger>}
           {isOwner && <TabsTrigger value="pembayaran" className="gap-2 py-2.5"><CreditCard className="h-4 w-4" /> Pembayaran</TabsTrigger>}
         </TabsList>
@@ -523,34 +523,12 @@ export default function AppSettings() {
           </Button>
         </TabsContent>
 
-        {/* Komisi Tab (Owner Only) */}
-        {isOwner && (
+        {/* Komisi Tab (Owner Only) - Removed as it's redundant with User Management settings */}
+        {/* {isOwner && (
           <TabsContent value="komisi" className="space-y-6 outline-none">
-            <Card className="border-none shadow-md">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" /> Tarif Komisi Tim</CardTitle>
-                <CardDescription>Atur jumlah komisi yang didapatkan tim Anda untuk satu data entri yang berhasil.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {Object.entries(rates)
-                  .filter(([roleKey]) => !["super_admin", "owner"].includes(roleKey))
-                  .map(([r, amount]) => (
-                    <div key={r} className="flex items-center gap-4 p-4 border rounded-xl bg-card">
-                      <Label className="w-40 capitalize font-semibold text-sm">{r.replace("_", " ")}</Label>
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">Rp</span>
-                        <Input type="number" value={amount} onChange={(e) => setRates(prev => ({ ...prev, [r]: parseInt(e.target.value) || 0 }))} className="pl-10 h-11" />
-                      </div>
-                    </div>
-                  ))}
-              </CardContent>
-            </Card>
-            <Button onClick={handleSaveRates} disabled={savingRates} className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20">
-              {savingRates ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-              Simpan Tarif Komisi Tim
-            </Button>
+            ...
           </TabsContent>
-        )}
+        )} */}
 
         {/* Tarif Platform Tab (Super Admin Only) */}
         {isSuperAdmin && (
