@@ -26,10 +26,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, UserPlus, Shield, UserCog, Trash2 } from "lucide-react";
+import { Loader2, Search, UserPlus, Shield, UserCog, Trash2, KeyRound } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,7 +70,23 @@ const UsersManagement = () => {
   const [newOwnerId, setNewOwnerId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const canSelectOwner = role === "super_admin" && newRole !== "owner";
+  // State for Create User Dialog
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [createEmail, setCreateEmail] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createFullName, setCreateFullName] = useState("");
+  const [createRole, setCreateRole] = useState<AppRole | "">("");
+  const [createOwnerId, setCreateOwnerId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // State for Reset Password Dialog
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [resetUserId, setResetUserId] = useState<string | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+
+  const canSelectOwner = (role === "super_admin") && (newRole !== "owner" && newRole !== "super_admin");
+  const canSelectOwnerCreate = (role === "super_admin") && (createRole !== "owner" && createRole !== "super_admin");
 
   const fetchUsers = useCallback(async () => {
     if (!user) return;
@@ -110,10 +127,8 @@ const UsersManagement = () => {
         .select("*", { count: "exact" });
 
       if (role === "owner") {
-        profileQuery = profileQuery.or(`id.eq.${user.id},owner_id.eq.${user.id}`);
-      }
-
-      if (filterOwner !== "all") {
+        profileQuery = profileQuery.eq("owner_id", user.id);
+      } else if (filterOwner !== "all") {
         profileQuery = profileQuery.eq("owner_id", filterOwner);
       }
 
@@ -150,7 +165,7 @@ const UsersManagement = () => {
           owner_id: p.owner_id ?? null,
         }));
 
-        // 4. Apply role filter client-side if needed (since we can't easily join)
+        // 4. Apply role filter client-side if needed
         if (filterRole !== "all") {
           merged = merged.filter(u => u.role === filterRole);
         }
@@ -177,27 +192,70 @@ const UsersManagement = () => {
     fetchUsers();
   }, [fetchUsers]);
 
+  const handleCreateUser = async () => {
+    if (!createEmail || !createPassword || !createFullName || !createRole) {
+      toast({
+        title: "Error",
+        description: "Semua field wajib diisi",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-user", {
+        body: {
+          email: createEmail,
+          password: createPassword,
+          full_name: createFullName,
+          role: createRole,
+          owner_id: createOwnerId,
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      toast({
+        title: "Berhasil",
+        description: "Pengguna berhasil dibuat",
+      });
+      setIsCreateDialogOpen(false);
+      // Reset form
+      setCreateEmail("");
+      setCreatePassword("");
+      setCreateFullName("");
+      setCreateRole("");
+      setCreateOwnerId(null);
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Gagal membuat pengguna",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleUpdateRole = async () => {
     if (!editingUser || !newRole) return;
 
     try {
-      // 1. Update role in user_roles
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .update({ role: newRole as AppRole })
-        .eq("user_id", editingUser.id);
+      const { data, error } = await supabase.functions.invoke("update-user", {
+        body: {
+          user_id: editingUser.id,
+          action: "change_role",
+          new_role: newRole,
+          new_owner_id: newOwnerId,
+        },
+      });
 
-      if (roleError) throw roleError;
-
-      // 2. Update owner_id in profiles if applicable
-      if (newRole !== "owner") {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({ owner_id: newOwnerId })
-          .eq("id", editingUser.id);
-
-        if (profileError) throw profileError;
-      }
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
 
       toast({
         title: "Berhasil",
@@ -209,20 +267,61 @@ const UsersManagement = () => {
       console.error("Error updating role:", error);
       toast({
         title: "Error",
-        description: "Gagal memperbarui role pengguna",
+        description: error.message || "Gagal memperbarui role pengguna",
         variant: "destructive",
       });
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!resetUserId || !resetPassword || resetPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password minimal 6 karakter",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-user", {
+        body: {
+          user_id: resetUserId,
+          action: "reset_password",
+          new_password: resetPassword,
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      toast({
+        title: "Berhasil",
+        description: "Password berhasil direset",
+      });
+      setIsResetDialogOpen(false);
+      setResetPassword("");
+    } catch (error: any) {
+      console.error("Error resetting password:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Gagal mereset password",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const handleDeleteUser = async (userId: string) => {
     try {
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId);
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { user_id: userId },
+      });
 
-      if (roleError) throw roleError;
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
 
       toast({
         title: "Berhasil",
@@ -233,7 +332,7 @@ const UsersManagement = () => {
       console.error("Error deleting user:", error);
       toast({
         title: "Error",
-        description: "Gagal menghapus pengguna",
+        description: error.message || "Gagal menghapus pengguna",
         variant: "destructive",
       });
     }
@@ -274,6 +373,10 @@ const UsersManagement = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Tambah User
+          </Button>
         </div>
       </div>
 
@@ -357,6 +460,18 @@ const UsersManagement = () => {
                       <Button
                         variant="ghost"
                         size="icon"
+                        title="Reset Password"
+                        onClick={() => {
+                          setResetUserId(u.id);
+                          setIsResetDialogOpen(true);
+                        }}
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Edit Role"
                         onClick={() => {
                           setEditingUser(u);
                           setNewRole(u.role || "");
@@ -367,10 +482,10 @@ const UsersManagement = () => {
                         <UserCog className="h-4 w-4" />
                       </Button>
                       
-                      {role === "super_admin" && u.id !== user?.id && (
+                      {(role === "super_admin" || (role === "owner" && u.owner_id === user?.id)) && u.id !== user?.id && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive">
+                            <Button variant="ghost" size="icon" className="text-destructive" title="Hapus User">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
@@ -378,7 +493,7 @@ const UsersManagement = () => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Hapus Pengguna?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Tindakan ini tidak dapat dibatalkan. Ini akan menghapus role dan akses pengguna.
+                                Tindakan ini tidak dapat dibatalkan. Ini akan menghapus akun, profil, dan semua data terkait pengguna ini secara permanen.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -426,6 +541,84 @@ const UsersManagement = () => {
         </div>
       </div>
 
+      {/* Create User Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tambah Pengguna Baru</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nama Lengkap</Label>
+              <Input 
+                placeholder="Nama Lengkap" 
+                value={createFullName} 
+                onChange={(e) => setCreateFullName(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input 
+                type="email" 
+                placeholder="email@example.com" 
+                value={createEmail} 
+                onChange={(e) => setCreateEmail(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Password</Label>
+              <Input 
+                type="password" 
+                placeholder="Minimal 6 karakter" 
+                value={createPassword} 
+                onChange={(e) => setCreatePassword(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={createRole} onValueChange={(v) => setCreateRole(v as AppRole)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {role === "super_admin" && <SelectItem value="owner">Owner</SelectItem>}
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="lapangan">Lapangan</SelectItem>
+                  <SelectItem value="nib">NIB</SelectItem>
+                  <SelectItem value="admin_input">Admin Input</SelectItem>
+                  <SelectItem value="umkm">UMKM</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {canSelectOwnerCreate && (
+              <div className="space-y-2">
+                <Label>Pilih Owner</Label>
+                <Select value={createOwnerId || "none"} onValueChange={(v) => setCreateOwnerId(v === "none" ? null : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih Owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Tanpa Owner</SelectItem>
+                    {owners.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.full_name || o.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <Button className="w-full" onClick={handleCreateUser} disabled={isCreating}>
+              {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
+              Buat Pengguna
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Role Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -443,9 +636,9 @@ const UsersManagement = () => {
                   <SelectValue placeholder="Pilih Role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                  {role === "super_admin" && <SelectItem value="super_admin">Super Admin</SelectItem>}
+                  {role === "super_admin" && <SelectItem value="owner">Owner</SelectItem>}
                   <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="owner">Owner</SelectItem>
                   <SelectItem value="lapangan">Lapangan</SelectItem>
                   <SelectItem value="nib">NIB</SelectItem>
                   <SelectItem value="admin_input">Admin Input</SelectItem>
@@ -475,6 +668,30 @@ const UsersManagement = () => {
 
             <Button className="w-full" onClick={handleUpdateRole}>
               Simpan Perubahan
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Password Baru</Label>
+              <Input 
+                type="password" 
+                placeholder="Minimal 6 karakter" 
+                value={resetPassword} 
+                onChange={(e) => setResetPassword(e.target.value)} 
+              />
+            </div>
+            <Button className="w-full" onClick={handleResetPassword} disabled={isResetting}>
+              {isResetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <KeyRound className="h-4 w-4 mr-2" />}
+              Reset Password
             </Button>
           </div>
         </DialogContent>

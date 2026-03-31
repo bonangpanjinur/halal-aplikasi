@@ -1001,3 +1001,5 @@ export const Constants = {
     },
   },
 } as const
+
+export type AppRole = Database["public"]["Enums"]["app_role"];

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -72,42 +72,53 @@ export default function UserRatings() {
   const [responseText, setResponseText] = useState("");
 
   // Fetch ratings
-  useEffect(() => {
-    const fetchRatings = async () => {
-      setLoading(true);
-      try {
-        let query = supabase.from("app_ratings").select("*");
+  const fetchRatings = useCallback(async () => {
+    setLoading(true);
+    try {
+      let query = supabase.from("app_ratings").select("*");
 
-        if (isUmkm && user) {
+      if (isUmkm && user) {
+        query = query.eq("user_id", user.id);
+      } else if (isOwner && user) {
+        // Fetch member IDs first since subqueries aren't supported in .in()
+        const { data: members } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("owner_id", user.id);
+        
+        const memberIds = members?.map(m => m.id) || [];
+        if (memberIds.length > 0) {
+          query = query.in("user_id", memberIds);
+        } else {
+          // If no members, only show own ratings or nothing
           query = query.eq("user_id", user.id);
-        } else if (isOwner && user) {
-          query = query.in(
-            "user_id",
-            supabase.from("profiles").select("id").eq("owner_id", user.id)
-          );
         }
-
-        const { data, error } = await query.order("created_at", { ascending: false });
-        if (error) throw error;
-        setRatings(data || []);
-
-        // Fetch analytics for today
-        const today = new Date().toISOString().split("T")[0];
-        const { data: analyticsData } = await supabase
-          .from("rating_analytics")
-          .select("*")
-          .eq("period", today)
-          .single();
-
-        if (analyticsData) setAnalytics(analyticsData);
-      } catch (error: any) {
-        toast({ title: "Gagal memuat rating", description: error.message, variant: "destructive" });
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchRatings();
+
+      const { data, error } = await query.order("created_at", { ascending: false });
+      if (error) throw error;
+      setRatings(data || []);
+
+      // Fetch analytics for today
+      const today = new Date().toISOString().split("T")[0];
+      const { data: analyticsData } = await supabase
+        .from("rating_analytics")
+        .select("*")
+        .eq("period", today)
+        .maybeSingle();
+
+      if (analyticsData) setAnalytics(analyticsData);
+    } catch (error: any) {
+      console.error("Error fetching ratings:", error);
+      toast({ title: "Gagal memuat rating", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   }, [isUmkm, isOwner, user]);
+
+  useEffect(() => {
+    fetchRatings();
+  }, [fetchRatings]);
 
   const handleAddRating = async () => {
     if (!user) {
@@ -134,6 +145,7 @@ export default function UserRatings() {
         setRatingForm({ rating: 5, title: "", comment: "", category: "general" });
         setShowRatingDialog(false);
         toast({ title: "Rating berhasil dikirim, terima kasih!" });
+        fetchRatings(); // Refresh to update analytics
       }
     } catch (error: any) {
       toast({ title: "Gagal mengirim rating", description: error.message, variant: "destructive" });
@@ -163,12 +175,7 @@ export default function UserRatings() {
         setResponseText("");
         setShowResponseDialog(false);
         toast({ title: "Respons berhasil dikirim" });
-        // Refresh ratings
-        const { data: updatedRatings } = await supabase
-          .from("app_ratings")
-          .select("*")
-          .order("created_at", { ascending: false });
-        if (updatedRatings) setRatings(updatedRatings);
+        fetchRatings(); // Refresh consistently
       }
     } catch (error: any) {
       toast({ title: "Gagal mengirim respons", description: error.message, variant: "destructive" });
@@ -301,28 +308,27 @@ export default function UserRatings() {
                 <TableBody>
                   {ratings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isSuperAdmin || isOwner ? 7 : 6} className="text-center py-8 text-muted-foreground">
-                        Belum ada rating
+                      <TableCell colSpan={(isSuperAdmin || isOwner) ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                        Belum ada rating yang diberikan.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    ratings.map(rating => (
-                      <TableRow key={rating.id} className="hover:bg-muted/20 transition-all">
+                    ratings.map((rating) => (
+                      <TableRow key={rating.id}>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            {[...Array(rating.rating)].map((_, i) => (
-                              <Star key={i} className={cn("h-4 w-4", getRatingColor(rating.rating))} fill="currentColor" />
-                            ))}
+                            <Star className={cn("h-4 w-4 fill-current", getRatingColor(rating.rating))} />
+                            <span className="font-bold">{rating.rating}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="font-semibold">{rating.title || "-"}</TableCell>
+                        <TableCell className="font-medium">{rating.title || "-"}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{getCategoryLabel(rating.category)}</Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{rating.comment || "-"}</TableCell>
+                        <TableCell className="max-w-xs truncate">{rating.comment || "-"}</TableCell>
                         <TableCell className="text-center">
-                          <Badge variant={rating.status === "submitted" ? "default" : "secondary"}>
-                            {rating.status}
+                          <Badge variant={rating.status === "responded" ? "default" : "secondary"}>
+                            {rating.status === "responded" ? "Dibalas" : "Baru"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -352,38 +358,34 @@ export default function UserRatings() {
         </CardContent>
       </Card>
 
-      {/* Add Rating Dialog */}
+      {/* Rating Dialog */}
       <Dialog open={showRatingDialog} onOpenChange={setShowRatingDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Berikan Rating & Feedback</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Rating (1-5 Bintang)</Label>
-              <div className="flex gap-2 mt-2">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <button
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Rating</Label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
                     key={star}
+                    className={cn(
+                      "h-8 w-8 cursor-pointer transition-colors",
+                      star <= ratingForm.rating ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"
+                    )}
                     onClick={() => setRatingForm({ ...ratingForm, rating: star })}
-                    className="transition-transform hover:scale-110"
-                  >
-                    <Star
-                      className={cn(
-                        "h-8 w-8",
-                        star <= ratingForm.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
-                      )}
-                    />
-                  </button>
+                  />
                 ))}
               </div>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Kategori</Label>
               <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={ratingForm.category}
                 onChange={(e) => setRatingForm({ ...ratingForm, category: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg bg-background"
               >
                 <option value="general">Umum</option>
                 <option value="workflow">Workflow</option>
@@ -392,29 +394,28 @@ export default function UserRatings() {
                 <option value="performance">Performa</option>
               </select>
             </div>
-            <div>
-              <Label>Judul (Opsional)</Label>
+            <div className="space-y-2">
+              <Label>Judul</Label>
               <Input
+                placeholder="Judul feedback"
                 value={ratingForm.title}
                 onChange={(e) => setRatingForm({ ...ratingForm, title: e.target.value })}
-                placeholder="Judul singkat untuk feedback Anda"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Komentar</Label>
               <textarea
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[100px]"
+                placeholder="Ceritakan pengalaman Anda..."
                 value={ratingForm.comment}
                 onChange={(e) => setRatingForm({ ...ratingForm, comment: e.target.value })}
-                placeholder="Bagikan pengalaman Anda..."
-                className="w-full px-3 py-2 border rounded-lg bg-background resize-none"
-                rows={4}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRatingDialog(false)}>Batal</Button>
             <Button onClick={handleAddRating} disabled={saving}>
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
               Kirim Rating
             </Button>
           </DialogFooter>
@@ -425,36 +426,28 @@ export default function UserRatings() {
       <Dialog open={showResponseDialog} onOpenChange={setShowResponseDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Balas Rating</DialogTitle>
+            <DialogTitle>Balas Feedback</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {selectedRating && (
-              <div className="p-4 bg-muted rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  {[...Array(selectedRating.rating)].map((_, i) => (
-                    <Star key={i} className="h-4 w-4 text-yellow-500" fill="currentColor" />
-                  ))}
-                </div>
-                <p className="font-semibold">{selectedRating.title || "Tanpa Judul"}</p>
-                <p className="text-sm text-muted-foreground mt-1">{selectedRating.comment}</p>
-              </div>
-            )}
-            <div>
+          <div className="space-y-4 py-4">
+            <div className="bg-muted/30 p-4 rounded-lg">
+              <p className="text-sm font-bold">{selectedRating?.title || "Tanpa Judul"}</p>
+              <p className="text-sm mt-1">{selectedRating?.comment}</p>
+            </div>
+            <div className="space-y-2">
               <Label>Respons Anda</Label>
               <textarea
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[100px]"
+                placeholder="Tulis balasan Anda..."
                 value={responseText}
                 onChange={(e) => setResponseText(e.target.value)}
-                placeholder="Tulis respons untuk rating ini..."
-                className="w-full px-3 py-2 border rounded-lg bg-background resize-none"
-                rows={4}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowResponseDialog(false)}>Batal</Button>
             <Button onClick={handleAddResponse} disabled={saving}>
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-              Kirim Respons
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Reply className="h-4 w-4 mr-2" />}
+              Kirim Balasan
             </Button>
           </DialogFooter>
         </DialogContent>
