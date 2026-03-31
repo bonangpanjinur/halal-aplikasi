@@ -134,6 +134,20 @@ export default function DataEntryForm({ groupId, entry, onCancel, onSaved, isPub
   }, [entry?.id]);
 
   const uploadFile = async (file: File, bucket: string): Promise<string | null> => {
+    // Client-side validation for file size (max 2MB) and type
+    const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
+    
+    if (file.size > MAX_SIZE) {
+      toast({ title: "File terlalu besar", description: `Ukuran file ${file.name} melebihi batas 2MB`, variant: "destructive" });
+      return null;
+    }
+    
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast({ title: "Format file tidak didukung", description: `File ${file.name} harus berupa JPG, PNG, atau PDF`, variant: "destructive" });
+      return null;
+    }
+
     const ext = file.name.split(".").pop();
     const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
     const { error } = await supabase.storage.from(bucket).upload(path, file);
@@ -152,17 +166,54 @@ export default function DataEntryForm({ groupId, entry, onCancel, onSaved, isPub
         navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true })
       );
       const { latitude, longitude } = pos.coords;
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+      // Added User-Agent header to avoid 403 Forbidden from Nominatim
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`, {
+        headers: {
+          'User-Agent': 'HalalTrack-App/1.0'
+        }
+      });
+      if (!res.ok) throw new Error("Nominatim API error");
       const data = await res.json();
       setAlamat(data.display_name || `${latitude}, ${longitude}`);
-    } catch {
-      toast({ title: "Gagal mendapatkan lokasi", variant: "destructive" });
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      toast({ title: "Gagal mendapatkan lokasi", description: "Terjadi kesalahan saat menghubungi layanan peta.", variant: "destructive" });
     }
     setGettingLocation(false);
   };
 
   const handleSave = async () => {
+    // Basic validation
+    if (!nama.trim()) {
+      toast({ title: "Validasi Gagal", description: "Nama harus diisi", variant: "destructive" });
+      return;
+    }
+    if (!nomorHp.trim()) {
+      toast({ title: "Validasi Gagal", description: "Nomor HP harus diisi", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
+
+    // Check for duplication (only for new entries)
+    if (!entry) {
+      const { data: existing } = await supabase
+        .from("data_entries")
+        .select("id")
+        .eq("nomor_hp", nomorHp)
+        .eq("group_id", groupId)
+        .maybeSingle();
+      
+      if (existing) {
+        toast({ 
+          title: "Duplikasi Data", 
+          description: "Nomor HP ini sudah terdaftar dalam grup ini.", 
+          variant: "destructive" 
+        });
+        setSaving(false);
+        return;
+      }
+    }
 
     let ktp_url = entry?.ktp_url ?? null;
     let nib_url = entry?.nib_url ?? null;

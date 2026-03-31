@@ -114,9 +114,27 @@ export default function GroupDetail() {
     setGroup(data);
   };
 
-  const fetchEntries = async () => {
+  const fetchEntries = async (page: number = 1) => {
     if (!groupId) return;
-    let query = supabase.from("data_entries").select("*").eq("group_id", groupId).order("created_at", { ascending: false });
+    
+    // Get total count first
+    const { count } = await supabase
+      .from("data_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("group_id", groupId);
+    
+    setTotalEntries(count ?? 0);
+    
+    // Calculate offset for pagination
+    const offset = (page - 1) * ITEMS_PER_PAGE;
+    
+    let query = supabase
+      .from("data_entries")
+      .select("*")
+      .eq("group_id", groupId)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + ITEMS_PER_PAGE - 1);
+    
     // Let RLS handle access control - no client-side filter needed
     const { data } = await query;
     setEntries(data ?? []);
@@ -271,12 +289,12 @@ export default function GroupDetail() {
 
   useEffect(() => {
     fetchGroup();
-    fetchEntries();
+    fetchEntries(currentPage);
     fetchMembers();
     if (role === "super_admin" || role === "owner" || role === "admin") {
       fetchAuditLogs();
     }
-  }, [groupId, role]);
+  }, [groupId, role, currentPage]);
 
   // Role configuration: roles that can only have one member per group
   const SINGLE_ROLE_PER_GROUP = ["owner", "lapangan", "nib", "admin_input", "admin"];
@@ -503,6 +521,8 @@ export default function GroupDetail() {
             const newEntry = payload.new as DataEntry;
             // Non-super_admin only sees own entries
             if (role !== "super_admin" && role !== "owner" && role !== "admin" && user && (newEntry as any).created_by !== user.id) return;
+            // Reset to first page when new entry is added
+            setCurrentPage(1);
             setEntries((prev) => [newEntry, ...prev]);
             toast({ title: "Data baru masuk", description: newEntry.nama || "Entri baru ditambahkan" });
           } else if (payload.eventType === "UPDATE") {
@@ -510,6 +530,8 @@ export default function GroupDetail() {
             // Non-super_admin only updates own entries
             if (role !== "super_admin" && role !== "owner" && role !== "admin" && user && (updated as any).created_by !== user.id) return;
             setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+            // Refresh total count when status changes
+            fetchEntries(currentPage);
             const oldStatus = (payload.old as any)?.status;
             if (oldStatus && oldStatus !== updated.status) {
               toast({

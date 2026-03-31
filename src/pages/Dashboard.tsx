@@ -96,17 +96,24 @@ export default function Dashboard() {
   const visibleFields = fields.filter((f) => f.can_view).slice(0, 4); // Limit fields for mobile view
 
   useEffect(() => {
+    const abortController = new AbortController();
+    
     const fetchData = async () => {
+      if (abortController.signal.aborted) return;
+      
       setLoading(true);
       const isSuperAdmin = role === "super_admin";
       const isOwner = role === "owner";
 
-      // 1. Fetch Basic Stats
+      // 1. Fetch Basic Stats - Only fetch necessary fields
       let entriesQuery = supabase.from("data_entries").select("id, status", { count: "exact" });
       if (!isSuperAdmin && !isOwner && user) entriesQuery = entriesQuery.eq("created_by", user.id);
       
       const { data: allEntries, count: entriesCount } = await entriesQuery;
       
+      if (abortController.signal.aborted) return;
+      
+      // Server-side aggregation would be better, but for now optimize client-side
       let nibCount = 0;
       let sertifikatCount = 0;
       if (allEntries) {
@@ -114,6 +121,8 @@ export default function Dashboard() {
         sertifikatCount = allEntries.filter(e => e.status === "sertifikat_selesai").length;
       }
 
+      if (abortController.signal.aborted) return;
+      
       const { count: groupsCount } = await supabase.from("groups").select("id", { count: "exact", head: true });
       
       let usersCount = 0;
@@ -125,11 +134,15 @@ export default function Dashboard() {
         usersCount = count ?? 0;
       }
 
+      if (abortController.signal.aborted) return;
+      
       const { count: linksCount } = await supabase
         .from("shared_links")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user?.id ?? "");
 
+      if (abortController.signal.aborted) return;
+      
       setStats({
         groups: groupsCount ?? 0,
         entries: entriesCount ?? 0,
@@ -139,6 +152,8 @@ export default function Dashboard() {
         sertifikat_selesai: sertifikatCount,
       });
 
+      if (abortController.signal.aborted) return;
+      
       // 1.1 Calculate KPIs
       if (allEntries) {
         const completed = allEntries.filter(e => e.status === 'sertifikat_selesai');
@@ -167,6 +182,8 @@ export default function Dashboard() {
         );
       }
 
+      if (abortController.signal.aborted) return;
+      
       // 3. Group Chart Data
       let groupQuery = supabase.from("data_entries").select("group_id, groups(name)");
       if (!isSuperAdmin && !isOwner && user) groupQuery = groupQuery.eq("created_by", user.id);
@@ -181,6 +198,8 @@ export default function Dashboard() {
         setGroupData(Object.values(groupCounts).sort((a, b) => b.count - a.count).slice(0, 5));
       }
 
+      if (abortController.signal.aborted) return;
+      
       // 4. Recent Entries
       let recentQuery = supabase
         .from("data_entries")
@@ -189,18 +208,27 @@ export default function Dashboard() {
         .limit(5);
       if (!isSuperAdmin && !isOwner && user) recentQuery = recentQuery.eq("created_by", user.id);
       const { data: recent } = await recentQuery;
+      
+      if (abortController.signal.aborted) return;
+      
       setRecentEntries(recent ?? []);
-
       setLoading(false);
     };
 
     fetchData();
+    
+    // Cleanup function to abort requests if component unmounts
+    return () => abortController.abort();
   }, [role, user]);
 
   // Admin performance stats
   useEffect(() => {
     if (role !== "super_admin") return;
+    
+    const abortController = new AbortController();
+    
     const fetchAdminStats = async () => {
+      if (abortController.signal.aborted) return;
       let query = supabase.from("data_entries").select("created_by");
       if (adminPeriod === "today") {
         query = query.gte("created_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
@@ -225,6 +253,8 @@ export default function Dashboard() {
       setAdminStats(stats.slice(0, 5));
     };
     fetchAdminStats();
+    
+    return () => abortController.abort();
   }, [role, adminPeriod]);
 
   const getCellValue = (entry: DataEntry, fieldName: string) => {
