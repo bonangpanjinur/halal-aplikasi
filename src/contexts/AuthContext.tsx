@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -31,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [owner_id, setOwnerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
 
   const fetchRole = async (userId: string) => {
     try {
@@ -66,33 +67,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Handle auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchRole(session.user.id);
+      async (event, currentSession) => {
+        console.log("Auth state change:", event, currentSession?.user?.id);
+        
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        
+        if (currentSession?.user) {
+          await fetchRole(currentSession.user.id);
         } else {
           setRole(null);
           setOwnerId(null);
         }
+        
         setLoading(false);
+        initialized.current = true;
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // Initial session check
+    const initSession = async () => {
       try {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchRole(session.user.id);
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        console.log("Initial session check:", initialSession?.user?.id);
+        
+        if (!initialized.current) {
+          setSession(initialSession);
+          setUser(initialSession?.user ?? null);
+          
+          if (initialSession?.user) {
+            await fetchRole(initialSession.user.id);
+          }
         }
       } catch (error) {
         console.error("Session initialization error:", error);
       } finally {
         setLoading(false);
+        initialized.current = true;
       }
-    });
+    };
+
+    initSession();
 
     return () => subscription.unsubscribe();
   }, []);
