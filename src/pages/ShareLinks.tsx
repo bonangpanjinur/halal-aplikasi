@@ -84,7 +84,17 @@ export default function ShareLinks() {
   };
 
   const fetchProfiles = async () => {
-    const { data } = await supabase.from("profiles").select("id, full_name, email");
+    if (!user) return;
+    
+    // Fetch profiles that are managed by this owner
+    // If user is owner, they can only see profiles where owner_id = user.id
+    // If user is super_admin, they might see all (but let's stick to owner logic for now)
+    let query = supabase.from("profiles").select("id, full_name, email");
+    
+    // In this app, owners manage their own admins/lapangan
+    query = query.eq("owner_id", user.id);
+    
+    const { data } = await query.order("full_name");
     setProfiles(data ?? []);
   };
 
@@ -175,9 +185,9 @@ export default function ShareLinks() {
             </div>
             <div className="flex-1">
               <Select value={selectedPic} onValueChange={setSelectedPic}>
-                <SelectTrigger><SelectValue placeholder="Pilih PIC (Opsional)..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Pilih PIC / Admin..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Tanpa PIC</SelectItem>
+                  <SelectItem value="none">Tanpa PIC (Default ke Owner)</SelectItem>
                   {profiles.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.email})</SelectItem>
                   ))}
@@ -275,13 +285,13 @@ export default function ShareLinks() {
       <Dialog open={!!editingLink} onOpenChange={(open) => !open && setEditingLink(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ubah PIC Link</DialogTitle>
+            <DialogTitle>Ubah PIC / Admin Link</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <Select value={editPicId} onValueChange={setEditPicId}>
-              <SelectTrigger><SelectValue placeholder="Pilih PIC..." /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Pilih PIC / Admin..." /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Tanpa PIC</SelectItem>
+                <SelectItem value="none">Tanpa PIC (Default ke Owner)</SelectItem>
                 {profiles.map((p) => (
                   <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.email})</SelectItem>
                 ))}
