@@ -145,7 +145,6 @@ export default function UsersManagement() {
     if (!user) return;
     setLoading(true);
     try {
-      // Fetch owners for filter/select (only once or when needed)
       if (owners.length === 0) {
         const { data: ownerProfiles } = await supabase
           .from("user_roles")
@@ -161,7 +160,6 @@ export default function UsersManagement() {
         setOwners(ownerList);
       }
 
-      // Build query for users
       let query = supabase
         .from("profiles")
         .select(`
@@ -169,7 +167,6 @@ export default function UsersManagement() {
           user_roles!inner(role)
         `, { count: "exact" });
 
-      // Apply filters
       if (role === "owner") {
         query = query.or(`id.eq.${user.id},owner_id.eq.${user.id}`);
       }
@@ -186,7 +183,6 @@ export default function UsersManagement() {
         query = query.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
       }
 
-      // Pagination
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
       
@@ -749,7 +745,8 @@ export default function UsersManagement() {
                         </TableCell>
                       </TableRow>
                     );
-                  })}
+                  })
+                )}
               </TableBody>
             </Table>
           </div>
@@ -801,7 +798,6 @@ export default function UsersManagement() {
         </CardContent>
       </Card>
 
-      {/* Dialogs remain similar but with updated handlers if needed */}
       {/* Edit Role Dialog */}
       <Dialog open={editRoleOpen} onOpenChange={setEditRoleOpen}>
         <DialogContent>
