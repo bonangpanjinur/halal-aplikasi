@@ -117,7 +117,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     fetchSettings();
   }, []);
 
-  const items = role ? NAV_ITEMS[role as keyof typeof NAV_ITEMS] ?? [] : [];
+  // Fallback navigation items for when role is loading or null
+  const DEFAULT_NAV = [
+    { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+    { label: "Group Halal", icon: FolderOpen, path: "/groups" },
+  ];
+
+  const items = role ? NAV_ITEMS[role as keyof typeof NAV_ITEMS] ?? DEFAULT_NAV : DEFAULT_NAV;
   const primaryItems = getPrimaryNavItems(items);
   const secondaryItems = getSecondaryNavItems(items);
 

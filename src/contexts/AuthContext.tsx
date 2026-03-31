@@ -33,20 +33,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchRole = async (userId: string) => {
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .single();
-    setRole(roleData?.role ?? null);
+    try {
+      // Fetch role from user_roles with retry logic
+      let { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .single();
 
-    // Fetch owner_id from profiles
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("owner_id")
-      .eq("id", userId)
-      .single();
-    setOwnerId(profileData?.owner_id ?? null);
+      // If we get a 406 error (not found), it might be a timing issue
+      // Try again after a short delay
+      if (roleError && roleError.code === "PGRST116") {
+        console.warn("Role not found on first attempt, retrying...");
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const retry = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .single();
+        roleData = retry.data;
+        roleError = retry.error;
+      }
+
+      if (roleError) {
+        console.error("Error fetching role:", roleError);
+      }
+      setRole(roleData?.role ?? null);
+
+      // Fetch owner_id from profiles
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("owner_id")
+        .eq("id", userId)
+        .single();
+
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+      }
+      setOwnerId(profileData?.owner_id ?? null);
+    } catch (error) {
+      console.error("Unexpected error in fetchRole:", error);
+    }
   };
 
   useEffect(() => {
@@ -55,7 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          setTimeout(() => fetchRole(session.user.id), 0);
+          // Add a small delay to ensure database is ready
+          setTimeout(() => fetchRole(session.user.id), 100);
         } else {
           setRole(null);
           setOwnerId(null);
@@ -68,7 +96,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchRole(session.user.id);
+        // Add a small delay to ensure database is ready
+        setTimeout(() => fetchRole(session.user.id), 100);
       }
       setLoading(false);
     });
@@ -77,11 +106,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setRole(null);
-    setOwnerId(null);
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    } finally {
+      setUser(null);
+      setSession(null);
+      setRole(null);
+      setOwnerId(null);
+    }
   };
 
   return (
