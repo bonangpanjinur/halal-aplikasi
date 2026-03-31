@@ -88,6 +88,11 @@ export default function GroupDetail() {
   const isAdminInput = role === "admin_input";
   const [statusFilter, setStatusFilter] = useState<string>(isAdminInput ? "siap_input" : "all");
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalEntries, setTotalEntries] = useState(0);
+  const ITEMS_PER_PAGE = 20;
+
   // Download state
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
@@ -846,6 +851,36 @@ export default function GroupDetail() {
                     </Table>
                   </CardContent>
                 </Card>
+              )}
+              
+              {/* Pagination Controls */}
+              {totalEntries > ITEMS_PER_PAGE && (
+                <div className="mt-4 flex items-center justify-between px-2">
+                  <div className="text-sm text-muted-foreground">
+                    Menampilkan {(currentPage - 1) * ITEMS_PER_PAGE + 1} sampai {Math.min(currentPage * ITEMS_PER_PAGE, totalEntries)} dari {totalEntries} data
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Sebelumnya
+                    </Button>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-background text-sm font-medium">
+                      {currentPage}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                      disabled={currentPage * ITEMS_PER_PAGE >= totalEntries}
+                    >
+                      Selanjutnya
+                    </Button>
+                  </div>
+                </div>
               )}
             </>
           )}
