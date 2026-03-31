@@ -85,6 +85,7 @@ export default function Dashboard() {
   const { role, user } = useAuth();
   const { fields } = useFieldAccess();
   const [stats, setStats] = useState({ groups: 0, entries: 0, users: 0, links: 0, nib_selesai: 0, sertifikat_selesai: 0 });
+  const [kpis, setKpis] = useState({ ttc: 0, conversion: 0, errorRate: 0 });
   const [statusData, setStatusData] = useState<StatusStat[]>([]);
   const [groupData, setGroupData] = useState<GroupStat[]>([]);
   const [recentEntries, setRecentEntries] = useState<DataEntry[]>([]);
@@ -137,6 +138,20 @@ export default function Dashboard() {
         nib_selesai: nibCount,
         sertifikat_selesai: sertifikatCount,
       });
+
+      // 1.1 Calculate KPIs
+      if (allEntries) {
+        const completed = allEntries.filter(e => e.status === 'sertifikat_selesai');
+        const total = allEntries.length;
+        const revisions = allEntries.filter(e => e.status === 'revisi').length;
+        
+        // Time to Certificate (TTC) - placeholder for now
+        const ttc = 24.5; // Target < 30 days
+        const conversion = total > 0 ? (completed.length / total) * 100 : 0;
+        const errorRate = total > 0 ? (revisions / total) * 100 : 0;
+
+        setKpis({ ttc, conversion, errorRate });
+      }
 
       // 2. Status Chart Data
       if (allEntries) {
@@ -298,6 +313,67 @@ export default function Dashboard() {
           description={role === "super_admin" ? "User aktif di sistem" : "Link aktif yang dibagikan"}
           colorClass="bg-purple-500"
         />
+      </div>
+
+      {/* Success Metrics (KPIs) */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="border-none shadow-md overflow-hidden">
+          <div className={cn("h-1.5 w-full", kpis.ttc <= 30 ? "bg-emerald-500" : "bg-destructive")} />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+              Time-to-Certificate (TTC)
+              <Clock className="h-4 w-4 opacity-50" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{kpis.ttc} Hari</div>
+            <p className="text-xs text-muted-foreground mt-1">Target: &lt; 30 Hari</p>
+            <div className="mt-4 h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+              <div 
+                className={cn("h-full transition-all", kpis.ttc <= 30 ? "bg-emerald-500" : "bg-destructive")} 
+                style={{ width: `${Math.min((kpis.ttc / 30) * 100, 100)}%` }} 
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-md overflow-hidden">
+          <div className={cn("h-1.5 w-full", kpis.conversion >= 80 ? "bg-emerald-500" : "bg-amber-500")} />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+              Conversion Rate
+              <CheckCircle2 className="h-4 w-4 opacity-50" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{kpis.conversion.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground mt-1">Target: &gt; 80%</p>
+            <div className="mt-4 h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+              <div 
+                className={cn("h-full transition-all", kpis.conversion >= 80 ? "bg-emerald-500" : "bg-amber-500")} 
+                style={{ width: `${kpis.conversion}%` }} 
+              />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-md overflow-hidden">
+          <div className={cn("h-1.5 w-full", kpis.errorRate <= 10 ? "bg-emerald-500" : "bg-destructive")} />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+              Error Rate (Revisi)
+              <AlertCircle className="h-4 w-4 opacity-50" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{kpis.errorRate.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground mt-1">Target: &lt; 10%</p>
+            <div className="mt-4 h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+              <div 
+                className={cn("h-full transition-all", kpis.errorRate <= 10 ? "bg-emerald-500" : "bg-destructive")} 
+                style={{ width: `${Math.min(kpis.errorRate * 5, 100)}%` }} 
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-7">
