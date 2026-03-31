@@ -274,7 +274,7 @@ export default function Dashboard() {
     </Card>
   );
 
-  if (loading) {
+  if (loading || (!role && user)) {
     return (
       <div className="flex h-[80vh] items-center justify-center">
         <div className="flex flex-col items-center gap-2">

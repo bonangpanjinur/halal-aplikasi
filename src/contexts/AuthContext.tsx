@@ -76,62 +76,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Handle auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        // Only update state if component is still mounted
-        if (!isMountedRef.current) return;
-        
-        try {
-          console.log("Auth state change:", event, currentSession?.user?.id);
-          
-          setSession(currentSession);
-          setUser(currentSession?.user ?? null);
-          
-          if (currentSession?.user) {
-            setLoading(true);
-            await fetchRole(currentSession.user.id);
-          } else {
-            setRole(null);
-            setOwnerId(null);
-          }
-        } catch (error) {
-          console.error("Error in auth state change:", error);
-          // Set defaults on error instead of leaving in loading state
-          setRole(null);
-          setOwnerId(null);
-        } finally {
-          setLoading(false);
-          initialized.current = true;
-        }
-      }
-    );
+    let isSubscribed = true;
 
     // Initial session check
     const initSession = async () => {
-      setLoading(true); // Set loading to true at the start of initial session check
+      if (!isMountedRef.current) return;
       
-      // Safety timeout to prevent infinite loading
+      setLoading(true);
+      
       const timeoutId = setTimeout(() => {
         if (isMountedRef.current && !initialized.current) {
-          console.warn("Auth initialization timed out after 10s. Forcing loading to false.");
+          console.warn("Auth initialization timed out. Forcing loading to false.");
           setLoading(false);
           initialized.current = true;
         }
       }, 10000);
 
       try {
-        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
         
-        if (sessionError) {
-          console.error("Error getting session:", sessionError);
-          throw sessionError;
-        }
-
-        console.log("Initial session check:", initialSession?.user?.id);
-        
-        // Only proceed if not already initialized and component is mounted
-        if (!initialized.current && isMountedRef.current) {
+        if (isMountedRef.current && isSubscribed) {
           setSession(initialSession);
           setUser(initialSession?.user ?? null);
           
@@ -144,14 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error("Session initialization error:", error);
-        // Set defaults on error
-        if (isMountedRef.current) {
-          setRole(null);
-          setOwnerId(null);
-        }
       } finally {
         clearTimeout(timeoutId);
-        if (isMountedRef.current) {
+        if (isMountedRef.current && isSubscribed) {
           setLoading(false);
           initialized.current = true;
         }
@@ -160,9 +119,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initSession();
 
+    // Handle auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        if (!isMountedRef.current || !isSubscribed) return;
+        
+        console.log("Auth state change:", event);
+
+        // If INITIAL_SESSION, we might already be handling it in initSession
+        if (event === 'INITIAL_SESSION' && initialized.current) return;
+
+        try {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          
+          if (currentSession?.user) {
+            setLoading(true);
+            await fetchRole(currentSession.user.id);
+          } else {
+            setRole(null);
+            setOwnerId(null);
+          }
+        } catch (error) {
+          console.error("Error in auth state change:", error);
+        } finally {
+          if (isMountedRef.current && isSubscribed) {
+            setLoading(false);
+            initialized.current = true;
+          }
+        }
+      }
+    );
+
     return () => {
+      isSubscribed = false;
       subscription.unsubscribe();
-      isMountedRef.current = false;
     };
   }, []);
 
