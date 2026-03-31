@@ -115,7 +115,7 @@ const getSecondaryNavItems = (items: any[], primaryItems: any[]) => {
 };
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const { role, signOut, user } = useAuth();
+  const { role, signOut, user, loading } = useAuth();
   const { theme, setTheme } = useTheme();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -145,8 +145,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   ];
 
   const items = role ? NAV_ITEMS[role as keyof typeof NAV_ITEMS] ?? DEFAULT_NAV : DEFAULT_NAV;
-  const primaryItems = getPrimaryNavItems(items, role);
-  const secondaryItems = getSecondaryNavItems(items, primaryItems);
+  
+  // While loading, we should show an empty list or loading state to prevent flickering
+  // to the default menu before the role is actually fetched.
+  const displayItems = loading && !role ? [] : items;
+  const primaryItems = getPrimaryNavItems(displayItems, role);
+  const secondaryItems = getSecondaryNavItems(displayItems, primaryItems);
 
   // Fetch unread notification count for UMKM
   useEffect(() => {
@@ -294,21 +298,27 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <span className="font-bold tracking-tight text-foreground">{appName}</span>
         </div>
         <nav className="flex-1 space-y-1 p-2">
-          {items.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                location.pathname === item.path
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-              )}
-            >
-              <item.icon className={cn("h-4 w-4", location.pathname === item.path ? "text-primary" : "text-muted-foreground")} />
-              <span className={cn(location.pathname === item.path ? "text-foreground" : "text-muted-foreground")}>{item.label}</span>
-            </button>
-          ))}
+          {loading && !role ? (
+            <div className="px-4 py-2 text-sm text-muted-foreground animate-pulse">
+              Memuat menu...
+            </div>
+          ) : (
+            displayItems.map((item) => (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  location.pathname === item.path
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                )}
+              >
+                <item.icon className={cn("h-4 w-4", location.pathname === item.path ? "text-primary" : "text-muted-foreground")} />
+                <span className={cn(location.pathname === item.path ? "text-foreground" : "text-muted-foreground")}>{item.label}</span>
+              </button>
+            ))
+          )}
         </nav>
         <div className="border-t p-3">
           <button
