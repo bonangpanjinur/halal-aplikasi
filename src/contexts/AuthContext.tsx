@@ -34,54 +34,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchRole = async (userId: string) => {
     try {
-      // Set a timeout for the entire fetch operation to prevent infinite loading
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Auth fetch timeout")), 15000)
-      );
-
-      const fetchOperation = (async () => {
-        // Fetch role from user_roles with retry logic
-        let { data: roleData, error: roleError } = await supabase
+      // Fetch role and profile in parallel for better performance
+      const [roleResponse, profileResponse] = await Promise.all([
+        supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", userId)
-          .single();
-
-        // If we get a 406 error (not found), it might be a timing issue
-        if (roleError && roleError.code === "PGRST116") {
-          console.warn("Role not found on first attempt, retrying...");
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          const retry = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", userId)
-            .single();
-          roleData = retry.data;
-          roleError = retry.error;
-        }
-
-        if (roleError) {
-          console.error("Error fetching role:", roleError);
-        }
-        setRole(roleData?.role ?? null);
-
-        // Fetch owner_id from profiles
-        const { data: profileData, error: profileError } = await supabase
+          .maybeSingle(),
+        supabase
           .from("profiles")
           .select("owner_id")
           .eq("id", userId)
-          .single();
+          .maybeSingle()
+      ]);
 
-        if (profileError) {
-          console.error("Error fetching profile:", profileError);
-        }
-        setOwnerId(profileData?.owner_id ?? null);
-      })();
+      if (roleResponse.error) {
+        console.error("Error fetching role:", roleResponse.error);
+      }
+      
+      if (profileResponse.error) {
+        console.error("Error fetching profile:", profileResponse.error);
+      }
 
-      await Promise.race([fetchOperation, timeoutPromise]);
+      setRole(roleResponse.data?.role ?? null);
+      setOwnerId(profileResponse.data?.owner_id ?? null);
     } catch (error) {
       console.error("Unexpected error in fetchRole:", error);
-      // Ensure we don't leave states in limbo
       setRole(null);
       setOwnerId(null);
     }
