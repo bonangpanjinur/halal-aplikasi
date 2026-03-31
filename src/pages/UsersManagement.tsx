@@ -45,7 +45,7 @@ interface UserWithRole {
   email: string | null;
   role: AppRole | null;
   owner_id?: string | null;
-  commission_type?: string | null;
+  ccommission_type?: string | null;
   monthly_salary?: number | null;
   transport_allowance?: number | null;
   target_ktp?: number | null;
@@ -113,7 +113,7 @@ export default function UsersManagement() {
   const [resetPwValue, setResetPwValue] = useState("");
   const [resettingPw, setResettingPw] = useState(false);
 
-  // Commission Settings state
+  // Ccommission Settings state
   const [commOpen, setCommOpen] = useState(false);
   const [commUser, setCommUser] = useState<UserWithRole | null>(null);
   const [commType, setCommType] = useState<"per_certificate" | "monthly_salary">("per_certificate");
@@ -198,7 +198,7 @@ export default function UsersManagement() {
         email: p.email,
         role: p.user_roles[0]?.role ?? null,
         owner_id: p.owner_id ?? null,
-        commission_type: p.commission_type,
+        ccommission_type: p.ccommission_type,
         monthly_salary: p.monthly_salary,
         transport_allowance: p.transport_allowance,
         target_ktp: p.target_ktp,
@@ -345,13 +345,13 @@ export default function UsersManagement() {
     setResetPwUser(null);
   };
 
-  const handleSaveCommission = async () => {
+  const handleSaveCcommission = async () => {
     if (!commUser) return;
     setSavingComm(true);
     const { error } = await supabase
       .from("profiles")
       .update({
-        commission_type: commType,
+        ccommission_type: commType,
         monthly_salary: commSalary,
         transport_allowance: commTransport,
         target_ktp: commTarget,
@@ -715,7 +715,7 @@ export default function UsersManagement() {
                               {(role === "owner" || role === "super_admin") && u.id !== user?.id && (
                                 <DropdownMenuItem onClick={() => {
                                   setCommUser(u);
-                                  setCommType((u.commission_type as any) || "per_certificate");
+                                  setCommType((u.ccommission_type as any) || "per_certificate");
                                   setCommSalary(u.monthly_salary || 0);
                                   setCommTransport(u.transport_allowance || 0);
                                   setCommTarget(u.target_ktp || 130);
@@ -898,7 +898,7 @@ export default function UsersManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Commission Settings Dialog */}
+      {/* Ccommission Settings Dialog */}
       <Dialog open={commOpen} onOpenChange={setCommOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -944,7 +944,7 @@ export default function UsersManagement() {
               </div>
             )}
 
-            <Button className="w-full" onClick={handleSaveCommission} disabled={savingComm}>
+            <Button className="w-full" onClick={handleSaveCcommission} disabled={savingComm}>
               {savingComm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {savingComm ? "Menyimpan..." : "Simpan Pengaturan"}
             </Button>
