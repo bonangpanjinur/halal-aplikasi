@@ -89,16 +89,29 @@ const NAV_ITEMS = {
 };
 
 // Function to get primary nav items (max 4 items for mobile)
-const getPrimaryNavItems = (items: any[]) => {
-  const primaryOrder = ["/dashboard", "/groups", "/share", "/komisi"];
+const getPrimaryNavItems = (items: any[], role: string | null) => {
+  let primaryOrder = ["/dashboard", "/groups", "/share", "/komisi"];
+  
+  // Custom primary items for Super Admin to ensure key features are visible
+  if (role === "super_admin") {
+    primaryOrder = ["/dashboard", "/users", "/commission-dashboard", "/billing-management"];
+  } else if (role === "owner") {
+    primaryOrder = ["/dashboard", "/users", "/groups", "/komisi"];
+  }
+  
   const primary = items.filter(item => primaryOrder.includes(item.path));
+  // If we don't have enough primary items, fill with others
+  if (primary.length < 4) {
+    const others = items.filter(item => !primaryOrder.includes(item.path));
+    return [...primary, ...others].slice(0, 4);
+  }
   return primary.slice(0, 4);
 };
 
 // Function to get secondary nav items (overflow items)
-const getSecondaryNavItems = (items: any[]) => {
-  const primaryOrder = ["/dashboard", "/groups", "/share", "/komisi"];
-  return items.filter(item => !primaryOrder.includes(item.path));
+const getSecondaryNavItems = (items: any[], primaryItems: any[]) => {
+  const primaryPaths = primaryItems.map(item => item.path);
+  return items.filter(item => !primaryPaths.includes(item.path));
 };
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -132,8 +145,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   ];
 
   const items = role ? NAV_ITEMS[role as keyof typeof NAV_ITEMS] ?? DEFAULT_NAV : DEFAULT_NAV;
-  const primaryItems = getPrimaryNavItems(items);
-  const secondaryItems = getSecondaryNavItems(items);
+  const primaryItems = getPrimaryNavItems(items, role);
+  const secondaryItems = getSecondaryNavItems(items, primaryItems);
 
   // Fetch unread notification count for UMKM
   useEffect(() => {

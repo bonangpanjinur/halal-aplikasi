@@ -406,7 +406,7 @@ export default function Dashboard() {
                   <Tooltip 
                     cursor={{ fill: '#f8fafc' }}
                     content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
+                      if (active && payload && payload.length && payload[0]) {
                         return (
                           <div className="bg-white dark:bg-slate-900 p-3 border rounded-lg shadow-xl">
                             <p className="text-sm font-bold mb-1">{payload[0].payload?.label || "Unknown"}</p>
