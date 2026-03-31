@@ -94,13 +94,13 @@ export default function Groups() {
       if (role === "super_admin" && owners.length === 0) {
         const { data: ownerData } = await supabase
           .from("user_roles")
-          .select("user_id, profiles(id, full_name, email)")
+          .select("user_id, profiles:user_id(id, full_name, email)")
           .eq("role", "owner");
         
         const ownerList = (ownerData || []).map((od: any) => ({
-          id: od.profiles.id,
-          name: od.profiles.full_name || od.profiles.email
-        }));
+          id: od.profiles?.id,
+          name: od.profiles?.full_name || od.profiles?.email
+        })).filter(o => o.id);
         setOwners(ownerList);
       }
 
