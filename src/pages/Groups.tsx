@@ -487,7 +487,7 @@ export default function Groups() {
                         />
                       </th>
                       <th className="p-4 text-left font-medium">Nama Grup</th>
-                      {role === "super_admin" && <th className="p-4 text-left font-medium">Owner</th></th>
+                     {role === "super_admin" && <th className="p-4 text-left font-medium">Owner</th>}
                       <th className="p-4 text-left font-medium">Dibuat Pada</th>
                       <th className="p-4 text-right font-medium">Aksi</th>
                     </tr>
