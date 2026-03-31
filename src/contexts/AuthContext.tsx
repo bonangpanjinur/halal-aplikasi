@@ -109,13 +109,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Initial session check
     const initSession = async () => {
       setLoading(true); // Set loading to true at the start of initial session check
+      
+      // Safety timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        if (isMountedRef.current && !initialized.current) {
+          console.warn("Auth initialization timed out after 10s. Forcing loading to false.");
+          setLoading(false);
+          initialized.current = true;
+        }
+      }, 10000);
+
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Error getting session:", sessionError);
+          throw sessionError;
+        }
+
         console.log("Initial session check:", initialSession?.user?.id);
         
         // Only proceed if not already initialized and component is mounted
         if (!initialized.current && isMountedRef.current) {
-
           setSession(initialSession);
           setUser(initialSession?.user ?? null);
           
@@ -132,9 +147,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isMountedRef.current) {
           setRole(null);
           setOwnerId(null);
-          setLoading(false); // Ensure loading is false on error
         }
       } finally {
+        clearTimeout(timeoutId);
         if (isMountedRef.current) {
           setLoading(false);
           initialized.current = true;
