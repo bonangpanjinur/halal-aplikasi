@@ -38,7 +38,12 @@ const queryClient = new QueryClient();
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles?: string[] }) {
   const { user, role, loading } = useAuth();
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Memuat...</div>;
+  if (loading) return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background text-muted-foreground">
+      <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      <p className="animate-pulse">Memuat data autentikasi...</p>
+    </div>
+  );
   if (!user) return <Navigate to="/login" replace />;
   if (role === "umkm") {
     if (allowedRoles && !allowedRoles.includes("umkm")) return <Navigate to="/umkm" replace />;
@@ -51,7 +56,12 @@ function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allow
 
 function AuthRoute({ children }: { children: ReactNode }) {
   const { user, role, loading } = useAuth();
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Memuat...</div>;
+  if (loading) return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background text-muted-foreground">
+      <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      <p className="animate-pulse">Memuat...</p>
+    </div>
+  );
   if (user) {
     if (role === "umkm") return <Navigate to="/umkm" replace />;
     return <Navigate to="/dashboard" replace />;

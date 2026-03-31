@@ -19,8 +19,34 @@ export class ErrorBoundary extends Component<Props, State> {
     error: null,
   };
 
+  private handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    console.error("Unhandled promise rejection:", event.reason);
+    this.setState({
+      hasError: true,
+      error: event.reason instanceof Error ? event.reason : new Error(String(event.reason)),
+    });
+  };
+
+  private handleGlobalError = (event: ErrorEvent) => {
+    console.error("Global error caught:", event.error);
+    this.setState({
+      hasError: true,
+      error: event.error || new Error(event.message),
+    });
+  };
+
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
+  }
+
+  public componentDidMount() {
+    window.addEventListener("unhandledrejection", this.handleUnhandledRejection);
+    window.addEventListener("error", this.handleGlobalError);
+  }
+
+  public componentWillUnmount() {
+    window.removeEventListener("unhandledrejection", this.handleUnhandledRejection);
+    window.removeEventListener("error", this.handleGlobalError);
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -52,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="flex min-h-[400px] w-full flex-col items-center justify-center p-6 text-center">
+        <div className="fixed inset-0 z-[9999] flex h-screen w-screen flex-col items-center justify-center bg-background p-6 text-center">
           <div className="mb-6 rounded-full bg-destructive/10 p-4 text-destructive">
             <AlertTriangle className="h-12 w-12" />
           </div>
