@@ -8,12 +8,18 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Plus, FolderOpen, Trash2 } from "lucide-react";
+import { Plus, FolderOpen, Trash2, Building2, User } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface Group {
   id: string;
   name: string;
   created_at: string;
+  owner_id: string | null;
+  profiles?: {
+    full_name: string | null;
+    email: string | null;
+  } | null;
 }
 
 export default function Groups() {
@@ -26,8 +32,11 @@ export default function Groups() {
   const [deleteTarget, setDeleteTarget] = useState<Group | null>(null);
 
   const fetchGroups = async () => {
-    const { data } = await supabase.from("groups").select("*").order("created_at", { ascending: false });
-    setGroups(data ?? []);
+    const { data } = await supabase
+      .from("groups")
+      .select("*, profiles:owner_id(full_name, email)")
+      .order("created_at", { ascending: false });
+    setGroups((data as any) ?? []);
   };
 
   useEffect(() => {
@@ -64,10 +73,20 @@ export default function Groups() {
     setDeleteTarget(null);
   };
 
+  const groupedGroups = groups.reduce((acc, group) => {
+    const ownerName = group.profiles?.full_name || group.profiles?.email || "Tanpa Owner";
+    if (!acc[ownerName]) acc[ownerName] = [];
+    acc[ownerName].push(group);
+    return acc;
+  }, {} as Record<string, Group[]>);
+
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Group Halal</h1>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Group Halal</h1>
+          <p className="text-sm text-muted-foreground">Kelola grup data entry untuk sertifikasi halal.</p>
+        </div>
         {(role === "super_admin" || role === "owner") && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -97,6 +116,47 @@ export default function Groups() {
             Belum ada group
           </CardContent>
         </Card>
+      ) : role === "super_admin" ? (
+        <div className="space-y-10">
+          {Object.entries(groupedGroups).map(([ownerName, ownerGroups]) => (
+            <div key={ownerName} className="space-y-4">
+              <div className="flex items-center gap-2 border-b pb-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">{ownerName}</h2>
+                <Badge variant="secondary" className="ml-2">{ownerGroups.length} Grup</Badge>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {ownerGroups.map((g) => (
+                  <Card key={g.id} className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-primary" onClick={() => navigate(`/groups/${g.id}`)}>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-primary" />
+                        {g.name}
+                      </CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(g); }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <User className="h-3 w-3" /> {ownerName}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Dibuat: {new Date(g.created_at).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {groups.map((g) => (
@@ -118,7 +178,7 @@ export default function Groups() {
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-muted-foreground">
-                  Dibuat: {new Date(g.created_at).toLocaleDateString("id-ID")}
+                  Dibuat: {new Date(g.created_at).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               </CardContent>
             </Card>
