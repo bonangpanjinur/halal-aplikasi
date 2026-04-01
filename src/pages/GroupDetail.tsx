@@ -20,6 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Users, FileText, Trash2, Download, Loader2, CheckCircle2, Clock, ShieldCheck, Search, Filter, FileSpreadsheet, RefreshCw, History, ArrowRight, FileCheck, Send, Award, AlertTriangle, Link2 } from "lucide-react";
 import DataEntryForm from "@/components/DataEntryForm";
 import PhotoGallery from "@/components/PhotoGallery";
+import GroupPermissionsManager from "@/components/GroupPermissionsManager";
 import type { Tables, Enums } from "@/integrations/supabase/types";
 
 type DataEntry = Tables<"data_entries">;
@@ -571,6 +572,9 @@ export default function GroupDetail() {
           {(role === "super_admin" || role === "admin" || role === "owner") && (
             <TabsTrigger value="members" className="gap-2"><Users className="h-4 w-4" /> Anggota</TabsTrigger>
           )}
+          {(role === "super_admin" || role === "owner") && (
+            <TabsTrigger value="permissions" className="gap-2"><ShieldCheck className="h-4 w-4" /> Izin Akses</TabsTrigger>
+          )}
           {(role === "super_admin" || role === "admin" || role === "owner") && (
             <TabsTrigger value="audit" className="gap-2" onClick={fetchAuditLogs}>
               <History className="h-4 w-4" /> Audit Log
@@ -994,6 +998,12 @@ export default function GroupDetail() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {(role === "super_admin" || role === "owner") && (
+          <TabsContent value="permissions" className="mt-4">
+            <GroupPermissionsManager groupId={groupId!} isOwner={role === "owner" || role === "super_admin"} />
           </TabsContent>
         )}
 
