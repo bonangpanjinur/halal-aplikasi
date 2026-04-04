@@ -190,7 +190,11 @@ export default function GroupDetail() {
   };
 
   const fetchAvailableUsers = async () => {
-    const { data: profiles } = await supabase.from("profiles").select("*");
+    let profileQuery = supabase.from("profiles").select("*");
+    if (role === "owner" && user) {
+      profileQuery = profileQuery.eq("owner_id", user.id);
+    }
+    const { data: profiles } = await profileQuery;
     const { data: existing } = await supabase.from("group_members").select("user_id").eq("group_id", groupId ?? "");
     const existingIds = new Set(existing?.map((e) => e.user_id));
     setAvailableUsers((profiles ?? []).filter((p) => !existingIds.has(p.id)));
