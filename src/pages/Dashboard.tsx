@@ -173,11 +173,24 @@ export default function Dashboard() {
         usersCount = count ?? 0;
       }
 
-      const { count: linkCount } = await supabase
-        .from("shared_links")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user?.id ?? "");
-      linksCount = linkCount ?? 0;
+      if (isSuperAdmin) {
+        const { count: linkCount } = await supabase
+          .from("shared_links")
+          .select("id", { count: "exact", head: true });
+        linksCount = linkCount ?? 0;
+      } else if (isOwner && user) {
+        // Owner: count all links in their groups (RLS handles scoping)
+        const { count: linkCount } = await supabase
+          .from("shared_links")
+          .select("id", { count: "exact", head: true });
+        linksCount = linkCount ?? 0;
+      } else {
+        const { count: linkCount } = await supabase
+          .from("shared_links")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user?.id ?? "");
+        linksCount = linkCount ?? 0;
+      }
 
       setStats({
         groups: groupsRes.count ?? 0,

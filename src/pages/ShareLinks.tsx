@@ -19,6 +19,7 @@ interface LinkRow {
   user_id: string;
   group_name?: string;
   entry_count?: number;
+  pic_name?: string;
 }
 
 interface GroupOption {
@@ -26,30 +27,57 @@ interface GroupOption {
   name: string;
 }
 
+interface PicOption {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+}
+
 export default function ShareLinks() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [links, setLinks] = useState<LinkRow[]>([]);
   const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [picUsers, setPicUsers] = useState<PicOption[]>([]);
   const [selectedGroup, setSelectedGroup] = useState("");
+  const [selectedPic, setSelectedPic] = useState("");
   const [creating, setCreating] = useState(false);
+
+  const canSelectPic = role === "super_admin" || role === "owner" || role === "admin";
+
+  const fetchPicUsers = async () => {
+    if (!user) return;
+    let query = supabase.from("profiles").select("id, full_name, email");
+    if (role === "owner") {
+      query = query.eq("owner_id", user.id);
+    }
+    const { data } = await query;
+    setPicUsers(data ?? []);
+  };
 
   const fetchLinks = async () => {
     if (!user) return;
-    // Owner sees all links in their groups (via RLS), others see own links
     const { data } = await supabase.from("shared_links").select("*");
     if (data) {
       const groupIds = [...new Set(data.map((l: any) => l.group_id))];
       const linkIds = data.map((l: any) => l.id);
-      const [{ data: groupData }, { data: entryCountData }] = await Promise.all([
+      const picIds = [...new Set(data.map((l: any) => l.user_id))];
+      const [{ data: groupData }, { data: entryCountData }, { data: picData }] = await Promise.all([
         supabase.from("groups").select("id, name").in("id", groupIds.length > 0 ? groupIds : ["__none__"]),
         supabase.from("data_entries").select("source_link_id").in("source_link_id", linkIds.length > 0 ? linkIds : ["__none__"]),
+        supabase.from("profiles").select("id, full_name, email").in("id", picIds.length > 0 ? picIds : ["__none__"]),
       ]);
       const gMap = new Map(groupData?.map((g: any) => [g.id, g.name]));
+      const picMap = new Map(picData?.map((p: any) => [p.id, p.full_name || p.email || "-"]));
       const countMap = new Map<string, number>();
       (entryCountData ?? []).forEach((e: any) => {
         countMap.set(e.source_link_id, (countMap.get(e.source_link_id) || 0) + 1);
       });
-      setLinks(data.map((l: any) => ({ ...l, group_name: gMap.get(l.group_id), entry_count: countMap.get(l.id) || 0 })));
+      setLinks(data.map((l: any) => ({
+        ...l,
+        group_name: gMap.get(l.group_id),
+        entry_count: countMap.get(l.id) || 0,
+        pic_name: picMap.get(l.user_id) || "-",
+      })));
     }
   };
 
@@ -61,13 +89,15 @@ export default function ShareLinks() {
   useEffect(() => {
     fetchLinks();
     fetchGroups();
+    if (canSelectPic) fetchPicUsers();
   }, [user]);
 
   const handleCreate = async () => {
     if (!user || !selectedGroup) return;
     setCreating(true);
+    const picUserId = canSelectPic && selectedPic ? selectedPic : user.id;
     const { error } = await supabase.from("shared_links").insert({
-      user_id: user.id,
+      user_id: picUserId,
       group_id: selectedGroup,
     } as any);
     setCreating(false);
@@ -76,6 +106,7 @@ export default function ShareLinks() {
     } else {
       toast({ title: "Link dibuat" });
       setSelectedGroup("");
+      setSelectedPic("");
       fetchLinks();
     }
   };
@@ -111,16 +142,28 @@ export default function ShareLinks() {
           <CardTitle className="text-base">Buat Link Baru</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2">
-            <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-              <SelectTrigger className="flex-1"><SelectValue placeholder="Pilih group..." /></SelectTrigger>
-              <SelectContent>
-                {groups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={handleCreate} disabled={!selectedGroup || creating}>
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2">
+              <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                <SelectTrigger className="flex-1"><SelectValue placeholder="Pilih group..." /></SelectTrigger>
+                <SelectContent>
+                  {groups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {canSelectPic && (
+              <Select value={selectedPic} onValueChange={setSelectedPic}>
+                <SelectTrigger><SelectValue placeholder="Pilih PIC (opsional)..." /></SelectTrigger>
+                <SelectContent>
+                  {picUsers.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.full_name || u.email || u.id}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button onClick={handleCreate} disabled={!selectedGroup || creating} className="w-fit">
               <Plus className="mr-2 h-4 w-4" /> Buat
             </Button>
           </div>
@@ -133,6 +176,7 @@ export default function ShareLinks() {
             <TableHeader>
               <TableRow>
                 <TableHead>Group</TableHead>
+                <TableHead>PIC</TableHead>
                 <TableHead>URL</TableHead>
                 <TableHead>Data Masuk</TableHead>
                 <TableHead>Status</TableHead>
@@ -144,6 +188,7 @@ export default function ShareLinks() {
               {links.map((l) => (
                 <TableRow key={l.id}>
                   <TableCell className="font-medium">{l.group_name}</TableCell>
+                  <TableCell className="text-sm">{l.pic_name}</TableCell>
                   <TableCell>
                     <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono">
                       /f/{l.slug || "..."}
@@ -181,7 +226,7 @@ export default function ShareLinks() {
               ))}
               {links.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     Belum ada link
                   </TableCell>
                 </TableRow>

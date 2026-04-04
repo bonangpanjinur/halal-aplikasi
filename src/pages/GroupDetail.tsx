@@ -818,7 +818,7 @@ export default function GroupDetail() {
           </TabsContent>
         )}
 
-        {(role === "super_admin" || role === "admin") && (
+        {(role === "super_admin" || role === "owner" || role === "admin") && (
           <TabsContent value="audit" className="mt-4">
             <Card>
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
