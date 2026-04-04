@@ -456,10 +456,10 @@ export default function GroupDetail() {
       <Tabs defaultValue="entries">
         <TabsList>
           <TabsTrigger value="entries" className="gap-2"><FileText className="h-4 w-4" /> Data Entri</TabsTrigger>
-          {(role === "super_admin" || role === "admin") && (
+          {(role === "super_admin" || role === "owner" || role === "admin") && (
             <TabsTrigger value="members" className="gap-2"><Users className="h-4 w-4" /> Anggota</TabsTrigger>
           )}
-          {(role === "super_admin" || role === "admin") && (
+          {(role === "super_admin" || role === "owner" || role === "admin") && (
             <TabsTrigger value="audit" className="gap-2" onClick={fetchAuditLogs}>
               <History className="h-4 w-4" /> Audit Log
             </TabsTrigger>
