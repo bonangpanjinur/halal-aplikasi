@@ -686,7 +686,7 @@ export default function GroupDetail() {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
-                                {(role === "super_admin" || role === "admin") && (
+                                {(role === "super_admin" || role === "owner" || role === "admin") && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
