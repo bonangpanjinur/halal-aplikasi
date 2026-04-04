@@ -784,7 +784,7 @@ export default function GroupDetail() {
                       <TableHead>Nama</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
-                      {role === "super_admin" && <TableHead className="w-16"></TableHead>}
+                      {(role === "super_admin" || role === "owner") && <TableHead className="w-16"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -795,7 +795,7 @@ export default function GroupDetail() {
                         <TableCell>
                           <Badge variant="outline">{m.role?.replace("_", " ") ?? "-"}</Badge>
                         </TableCell>
-                        {role === "super_admin" && (
+                        {(role === "super_admin" || role === "owner") && (
                           <TableCell>
                             <Button variant="ghost" size="icon" onClick={() => handleRemoveMember(m.id)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
